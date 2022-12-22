@@ -31,6 +31,6 @@ module BggTools
     end
 
     # https://api.geekdo.com/api/listitems?listid=302917&page=1
-    #
+    # PATCH to https://api.geekdo.com/api/listitems/9411421 to update
   end
 end
