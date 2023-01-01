@@ -1,5 +1,241 @@
 <html>
+  <head>
+    <title>jbodah > bgg_tools</title>
+  </head>
+
   <body>
-    hello world
+    <form onsubmit="submitForm(event)">
+      <div>
+        <label for="username">Username:</label>
+        <input id="username" name="username" type="text"></input>
+      </div>
+
+      <div>
+        <label for="since">Since:</label>
+        <input id="since" name="since" value="2022-12-01" type="text"></input>
+      </div>
+
+      <div>
+        <label for="format">Format:</label>
+        <br/>
+        <textarea id="format" style="width: 1000px; height: 100px;">
+[size=12][b][thing=${this.id}]${this.name}[/thing] - [COLOR=#00CC00]${this.numPlays} plays[/COLOR] - [/b]${this.ratingBcc}[/size]
+[imageID=${this.imageId} square inline]
+
+${this.comment}
+        </textarea>
+      </div>
+
+      <div>
+        <input type="submit"></input>
+      </div>
+    </form>
+
+    <div>
+      <h3>Output</h3>
+      <textarea id="output" style="width: 1000px; height: 500px;"></textarea>
+    </div>
+
+    <div>
+      <h3>Event Log</h3>
+      <div id="event_log">
+
+      </div>
+    </div>
   </body>
+
+  <script>
+    var eventLog = document.getElementById('event_log');
+
+    function logEvent(text) {
+      console.log(text);
+      eventLog.innerHTML = eventLog.innerHTML + text + "<br />";
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function syncGet(url) {
+      var backoff = 1
+      while(true) {
+        logEvent(`making req: url=${url}`)
+
+        var req = new XMLHttpRequest();
+        var out = "";
+        req.onreadystatechange = (resp) => {
+          if (req.readyState === XMLHttpRequest.DONE) {
+            logEvent(`req complete: status=${req.status}`);
+
+            if (req.status == 200) {
+              out = req.responseText;
+            } else if (req.status == 202) {
+              var backoffMs = 5000;
+              logEvent(`server wants us to check back later; sleeping and retrying: backoffMs=${backoffMs}`);
+              sleep(backoffMs);
+              out = syncGet(url);
+            } else if (req.status == 429) {
+              var backoffMs = 10000;
+              logEvent(`rate limited; sleeping and retrying: backoffMs=${backoffMs}`);
+              sleep(backoffMs);
+              out = syncGet(url);
+            } else {
+              logEvent(`don't know how to handle status; aborting: status=${req.status} body=${req.responseText}`);
+            }
+          }
+        }
+        req.open('GET', url, false);
+        req.send();
+        return out;
+      }
+    }
+
+    function downloadPlays(userId, since) {
+      return plays = paginate(100, (page) => {
+        var resp = syncGet(`https://boardgamegeek.com/xmlapi2/plays?username=${userId}&mindate=${since}&page=${page}`);
+        var parser = new DOMParser();
+        var xmlDoc = parser.parseFromString(resp, "text/xml");
+        //var i = xmlDoc.evaluate(".//play", xmlDoc, null, XPathResult.ANY_TYPE, null);
+        return Array.from(xmlDoc.children[0].children);
+      });
+    }
+
+    function downloadCollection_RatedPlayed(userId) {
+      return paginate(300, (page) => {
+        var resp = syncGet(`https://boardgamegeek.com/xmlapi2/collection?username=${userId}&rated=1&played=1&stats=1&page=${page}`);
+        var parser = new DOMParser();
+        var xmlDoc = parser.parseFromString(resp, "text/xml");
+        return Array.from(xmlDoc.children[0].children);
+      });
+    }
+
+    function paginate(expectedPageSize, getPageFn) {
+      var acc = [];
+      var page = 1;
+      var done = false;
+      while(done == false) {
+        var pageItems = getPageFn(page);
+        acc = acc.concat(pageItems);
+
+        logEvent(`processed page: pageSize=${pageItems.length} page=${page}`);
+
+        if (pageItems.length != expectedPageSize) {
+          done = true;
+        } else {
+          page = page + 1;
+        }
+      }
+      return acc;
+    }
+
+    function filterNewPlays(userId, plays) {
+      var newPlays = plays.filter((play) => {
+        var players = findChildNode(play, "players");
+        var userPlay = Array.from(players.children).find((p) => p.attributes.username.value == userId);
+        return userPlay.attributes.new.value == "1";
+      });
+      return newPlays;
+    }
+
+    function mapPlaysToGames(plays) {
+      return plays.map((p) => p.children[0]);
+    }
+
+    function filterCollectionToGames(collection, gameIds) {
+      return collection.filter((thing) => gameIds.includes(thing.getAttribute("objectid")));
+    }
+
+    function findChildNode(node, childNodeName) {
+      return Array.from(node.children).find((n) => n.nodeName == childNodeName)
+    }
+
+    function parseImageIdFromUrl(url) {
+      return url.match("\\d+\.\\w+$")[0].split('.')[0];
+    }
+
+    function ratingToRatingBcc(rating) {
+      var bgcolor = ""
+      if (rating < 2.0) {
+        bgcolor = "#ff0000";
+      } else if (rating < 3.0) {
+        bgcolor = "#ff3366";
+      } else if (rating < 4.0) {
+        bgcolor = "#ff6699";
+      } else if (rating < 5.0) {
+        bgcolor = "#ff66cc";
+      } else if (rating < 6.0) {
+        bgcolor = "#cc99ff";
+      } else if (rating < 7.0) {
+        bgcolor = "#9999ff";
+      } else if (rating < 8.0) {
+        bgcolor = "#99ffff";
+      } else if (rating < 9.0) {
+        bgcolor = "#66ff99";
+      } else if (rating < 10.0) {
+        bgcolor = "#33cc99";
+      } else {
+        bgcolor = "#00cc00";
+      }
+      return `[b][BGCOLOR=${bgcolor}] ${rating} [/BGCOLOR][/b]`;
+    }
+
+    function submitForm(event) {
+      event.preventDefault();
+
+      document.getElementById("output").innerHTML = "";
+
+      var userId = event.target[0].value;
+      var since = event.target[1].value;
+      var templateString = event.target[2].value;
+
+      logEvent(`form submitted: userId=${userId} since=${since}`);
+
+      logEvent(`downloading plays: userId=${userId} since=${since}`);
+      var plays = downloadPlays(userId, since);
+      logEvent(`total plays found: playsSize=${plays.length}`);
+
+      var myNewPlays = filterNewPlays(userId, plays);
+      logEvent(`new plays found: newPlaysSize=${myNewPlays.length}`);
+
+      var myNewGames = mapPlaysToGames(myNewPlays);
+
+      logEvent(`downloading rated/played collection: userId=${userId}`);
+      var myCollection = downloadCollection_RatedPlayed(userId);
+      logEvent(`found n games: userId=${userId} n=${myCollection.length}`);
+      var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
+
+      var parsed = myCollectionForNewGames.map((thing) => {
+        var obj = {
+          id: thing.getAttribute("objectid"),
+          name: findChildNode(thing, "name").innerHTML,
+          imageId: parseImageIdFromUrl(findChildNode(thing, "thumbnail").innerHTML),
+          rating: parseFloat(findChildNode(findChildNode(thing, "stats"), "rating").getAttribute("value")),
+          numPlays: findChildNode(thing, "numplays").innerHTML
+        };
+
+        obj.ratingBcc = ratingToRatingBcc(obj.rating);
+
+        var comment = findChildNode(thing, "comment");
+        if (comment) {
+          obj.comment = comment.innerHTML;
+        } else {
+          obj.comment = "";
+        }
+
+        return obj;
+      })
+
+      // Sort
+      parsed.sort((a, b) => b.rating - a.rating);
+
+      // TODO: built-in formatters
+
+      // Format
+      var formatted = parsed.map((p) => {
+        return new Function("return `"+templateString +"`;").call(p);
+      });
+
+      document.getElementById("output").innerHTML = formatted.join("\n")
+    }
+  </script>
 </html>
