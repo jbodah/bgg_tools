@@ -12,13 +12,12 @@ module BggTools
       @idx = 1
     end
 
-    def add_item(item_id:, body:)
-
+    def add_game(idx: @idx, item_id:, body:)
       json = {
         "item" => {"type" =>  "things", "id" =>  "#{item_id}" },
         "imageid" =>  nil,
         "imageOverridden" =>  false,
-        "index" => @idx,
+        "index" => idx,
         "body" => body,
         "rollsEnabled" => false
       }.to_json
