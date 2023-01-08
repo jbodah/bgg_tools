@@ -11,8 +11,22 @@
       </div>
 
       <div>
-        <label for="since">Since:</label>
-        <input id="since" name="since" value="2022-12-01" type="text"></input>
+        <label for="mindate">Min Date:</label>
+        <input id="mindate" name="mindate" value="2022-12-01" type="text"></input>
+      </div>
+
+      <div>
+        <label for="maxdate">Max Date:</label>
+        <input id="maxdate" name="maxdate" value="2022-12-31" type="text"></input>
+      </div>
+
+      <div>
+        <label for="format_selector">Built-in Formats:</label>
+        <select onchange="setFormat(event)">
+          <option value="null"></option>
+          <option value="grimwold">Grimwold</option>
+          <option value="gcl">GCL</option>
+        </select>
       </div>
 
       <div>
@@ -33,7 +47,7 @@ ${this.comment}
 
     <div>
       <h3>Output</h3>
-      <textarea id="output" style="width: 1000px; height: 500px;"></textarea>
+      <textarea id="output" style="width: 1300px; height: 500px;"></textarea>
     </div>
 
     <div>
@@ -46,6 +60,16 @@ ${this.comment}
 
   <script>
     var eventLog = document.getElementById('event_log');
+
+    var prebuiltFormats = {
+      "grimwold":
+`[size=12][b][thing=\${this.id}]\${this.name}[/thing] - [COLOR=#00CC00]\${this.numPlays} plays[/COLOR] - [/b]\${this.ratingBcc}[/size]
+[imageID=\${this.imageId} square inline]
+
+\${this.comment}`,
+      "gcl":
+"${this.ratingBcc}  [thing=${this.id}]${this.name}[/thing] x${this.numPlays}"
+    }
 
     function logEvent(text) {
       console.log(text);
@@ -90,9 +114,9 @@ ${this.comment}
       }
     }
 
-    function downloadPlays(userId, since) {
+    function downloadPlays(userId, mindate, maxdate) {
       return plays = paginate(100, (page) => {
-        var resp = syncGet(`https://boardgamegeek.com/xmlapi2/plays?username=${userId}&mindate=${since}&page=${page}`);
+        var resp = syncGet(`https://boardgamegeek.com/xmlapi2/plays?username=${userId}&mindate=${mindate}&maxdate=${maxdate}&page=${page}`);
         var parser = new DOMParser();
         var xmlDoc = parser.parseFromString(resp, "text/xml");
         //var i = xmlDoc.evaluate(".//play", xmlDoc, null, XPathResult.ANY_TYPE, null);
@@ -179,19 +203,24 @@ ${this.comment}
       return `[b][BGCOLOR=${bgcolor}] ${rating} [/BGCOLOR][/b]`;
     }
 
+    function setFormat(event) {
+      document.getElementById("format").innerHTML = prebuiltFormats[event.target.value];
+    }
+
     function submitForm(event) {
       event.preventDefault();
 
       document.getElementById("output").innerHTML = "";
 
       var userId = event.target[0].value;
-      var since = event.target[1].value;
-      var templateString = event.target[2].value;
+      var mindate = event.target[1].value;
+      var maxdate = event.target[2].value;
+      var templateString = event.target[4].value;
 
-      logEvent(`form submitted: userId=${userId} since=${since}`);
+      logEvent(`form submitted: userId=${userId} mindate=${mindate}`);
 
-      logEvent(`downloading plays: userId=${userId} since=${since}`);
-      var plays = downloadPlays(userId, since);
+      logEvent(`downloading plays: userId=${userId} mindate=${mindate} maxdate=${maxdate}`);
+      var plays = downloadPlays(userId, mindate, maxdate);
       logEvent(`total plays found: playsSize=${plays.length}`);
 
       var myNewPlays = filterNewPlays(userId, plays);
