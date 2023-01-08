@@ -1,4 +1,3 @@
-require 'logger'
 require 'open3'
 require 'nokogiri'
 require 'set'
@@ -7,8 +6,6 @@ module BggTools
   module API
     class << self
       BASE = "https://boardgamegeek.com"
-      LOGGER = Logger.new($stdout)
-      LOGGER.level = Logger::DEBUG
 
       def search_games_by_designer(designer_id:)
         paginate(page_size: 100) do |page|
@@ -109,24 +106,31 @@ module BggTools
       end
 
       def http_get(url, auth: false)
-        auth_args = []
-        if auth
-          auth_args = ["-H", "Authorization: GeekAuth #{BggTools::GeekAuth.get}"]
-        end
-        backoff = 1
-        loop do
-          LOGGER.debug "making req to #{url}"
-          out, _, st = Open3.capture3("curl", *auth_args, url, err: "/dev/null")
-          if out =~ /Rate limit exceeded/
-            LOGGER.debug "rate limit exceeded; backing off then retrying"
-            sleep backoff
-            backoff = backoff * 2
-          elsif st.to_i != 0
-            LOGGER.debug "non-zero status; sleeping then retrying: #{st.to_i}"
-            sleep backoff
-          else
-            return out
+        BggTools::Cache.maybe_cache(url) do
+          auth_args = []
+          if auth
+            auth_args = ["-H", "Authorization: GeekAuth #{BggTools::GeekAuth.get}"]
           end
+
+          backoff = 1
+          state = :not_done
+          out = nil
+          until state == :ok
+            BggTools::Logger.debug "making req to #{url}"
+            out, _, st = Open3.capture3("curl", *auth_args, url, err: "/dev/null")
+            if out =~ /Rate limit exceeded/
+              BggTools::Logger.debug "rate limit exceeded; backing off then retrying"
+              sleep backoff
+              backoff = backoff * 2
+            elsif st.to_i != 0
+              BggTools::Logger.debug "non-zero status; sleeping then retrying: #{st.to_i}"
+              sleep backoff
+            else
+              state = :ok
+            end
+          end
+
+          out
         end
       end
 
@@ -136,14 +140,14 @@ module BggTools
           auth_args = ["-H", "Authorization: GeekAuth #{BggTools::GeekAuth.get}"]
         end
 
-        LOGGER.debug "making req to #{url}"
+        BggTools::Logger.debug "making req to #{url}"
         out, err, st = Open3.capture3("curl", "-X", "POST", "-d", json, *auth_args, url, err: "/dev/null")
         if out =~ /Rate limit exceeded/
-          LOGGER.debug "rate limit exceeded; backing off then retrying"
+          BggTools::Logger.debug "rate limit exceeded; backing off then retrying"
           sleep backoff
           backoff = backoff * 2
         elsif st.to_i != 0
-          LOGGER.debug "non-zero status; sleeping then retrying: #{st.to_i}"
+          BggTools::Logger.debug "non-zero status; sleeping then retrying: #{st.to_i}"
           sleep backoff
         else
           return out

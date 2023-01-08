@@ -1,21 +1,35 @@
 $: << File.expand_path("..", __FILE__)
 
 module Env
-  def self.load_all
-    Dir[File.expand_path("../lib/**/*", __FILE__)].each do |f|
-      require f
+  class << self
+    def load_all
+      Dir[File.expand_path("../lib/**/*", __FILE__)].each do |f|
+        require f
+      end
+      load_once_env
+      load_each_env
+      :ok
     end
-    if File.exists?('.geekauth')
-      BggTools::GeekAuth.set(File.read('.geekauth').rstrip)
-    end
-  end
 
-  def self.reload_all
-    Dir[File.expand_path("../lib/**/*", __FILE__)].each do |f|
-      load f
+    def reload_all
+      Dir[File.expand_path("../lib/**/*", __FILE__)].each do |f|
+        load f
+      end
+      load_each_env
+      :ok
     end
-    if File.exists?('.geekauth')
-      BggTools::GeekAuth.set(File.read('.geekauth').rstrip)
+
+    private
+
+    def load_once_env
+      @cache = BggTools::FSCache.new
+      BggTools::Cache.set_cache(@cache)
+    end
+
+    def load_each_env
+      if File.exists?('.geekauth')
+        BggTools::GeekAuth.set(File.read('.geekauth').rstrip)
+      end
     end
   end
 end

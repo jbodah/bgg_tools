@@ -10,3 +10,4 @@
 .geekauth
 *.raw
 *.out
+.cache/
