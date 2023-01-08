@@ -40,7 +40,7 @@ module BggTools
     private
 
     def tds
-      raw.xpath(".//td")
+      raw.xpath(".//td[@class]")
     end
 
     def collection_objectname

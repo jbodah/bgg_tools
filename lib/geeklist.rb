@@ -2,9 +2,8 @@ require 'json'
 
 module BggTools
   class Geeklist
-    def initialize(list_id:, auth:)
+    def initialize(list_id:)
       @list_id = list_id
-      @auth = auth
       @idx = 1
     end
 
@@ -12,7 +11,18 @@ module BggTools
       @idx = 1
     end
 
-    def add_game(idx: @idx, item_id:, body:)
+    def add_all_items(tuples_or_item_ids)
+      tuples_or_item_ids.each do |t_or_id|
+        if t_or_id.is_a?(Array)
+          id, body = t_or_id
+          add_item(item_id: id, body: body)
+        else
+          add_item(item_id: t_or_id, body: "")
+        end
+      end
+    end
+
+    def add_item(idx: @idx, item_id:, body: "")
       json = {
         "item" => {"type" =>  "things", "id" =>  "#{item_id}" },
         "imageid" =>  nil,
@@ -21,12 +31,8 @@ module BggTools
         "body" => body,
         "rollsEnabled" => false
       }.to_json
-      auth_header = "Authorization: GeekAuth #{@auth}"
-
       @idx += 1
-
-      cmd = ["curl", "-X", "POST", "-d", json, "-H", auth_header, "https://api.geekdo.com/api/geeklists/#{@list_id}/listitems"]
-      system *cmd
+      BggTools::API.http_post_json("https://api.geekdo.com/api/geeklists/#{@list_id}/listitems", json: json)
     end
 
     # https://api.geekdo.com/api/listitems?listid=302917&page=1
