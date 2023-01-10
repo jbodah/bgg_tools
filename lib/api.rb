@@ -1,17 +1,27 @@
 require 'open3'
 require 'nokogiri'
 require 'set'
+require 'net/http'
 
 module BggTools
   module API
     class << self
       BASE = "https://boardgamegeek.com"
+      MAX_PAGES = Float::INFINITY
 
-      def search_games_by_designer(designer_id:)
-        paginate(page_size: 100) do |page|
+      def search_games_by_designer(designer_id:, max_pages: MAX_PAGES)
+        paginate(page_size: 100, max_pages: max_pages) do |page|
           io = http_get "#{BASE}/search/boardgame/page/#{page}?advsearch=1&q=&include%5Bdesignerid%5D=#{designer_id}"
           root = Nokogiri::HTML(io)
           root.css('tr[@id=row_]')
+        end
+      end
+
+      def browse_games_by_rank(max_pages: MAX_PAGES)
+        lazy_paginate(page_size: 100, max_pages: max_pages) do |page|
+          io = http_get "#{BASE}/browse/boardgame/page/#{page}", auth: page > 20
+          root = Nokogiri::HTML(io)
+          root.css('tr[@id]').select { |css| css.attr('id') =~ /row_/ }
         end
       end
 
@@ -32,7 +42,7 @@ module BggTools
           root = Nokogiri::HTML(io)
           ratings += root.xpath(".//tr[@id]")
           root.css('.collection_objectname')
-        end
+        end.to_a
         ratings
       end
 
@@ -44,11 +54,27 @@ module BggTools
         end
       end
 
-      def paginate(page_size:, &blk)
+      def lazy_paginate(page_size:, max_pages: MAX_PAGES, &blk)
+        Enumerator.new do |y|
+          acc = []
+          page = 1
+          done = false
+          until done == true || page > max_pages
+            slice = blk.call(page)
+            slice.each { |element| y << element }
+            done = true if slice.size != page_size
+            page += 1
+            acc += slice
+          end
+          acc
+        end.lazy
+      end
+
+      def paginate(page_size:, max_pages: MAX_PAGES, &blk)
         acc = []
         page = 1
         done = false
-        until done == true
+        until done == true || page > max_pages
           slice = blk.call(page)
           done = true if slice.size != page_size
           page += 1
@@ -62,17 +88,10 @@ module BggTools
         Nokogiri::HTML(out)
       end
 
-      # def download_things(ids:)
-      #   out = http_get "#{BASE}/xmlapi2/thing?id=#{ids.join(',')}"
-      #   bulk = Nokogiri::HTML(out)
-      #   bulk.css('item').map do |doc|
-      #     thing = {}
-      #     thing[:id] = doc.attr('id')
-      #     # thing[:image_id] = File.basename(doc.css('thumbnail')[0].inner_html, ".*").sub('pic', '')
-      #     thing[:name] = doc.xpath(".//name[@type='primary']")[0].attr('value')
-      #     thing
-      #   end
-      # end
+      def download_things(item_ids:)
+        out = http_get "#{BASE}/xmlapi2/thing?id=#{item_ids.join(',')}&stats=1"
+        Nokogiri::HTML(out)
+      end
 
       def http_get(url, auth: false)
         BggTools::Cache.maybe_cache(url) do
@@ -84,18 +103,38 @@ module BggTools
           backoff = 1
           state = :not_done
           out = nil
-          until state == :ok
-            BggTools::Logger.debug "making req to #{url}"
-            out, _, st = Open3.capture3("curl", *auth_args, url, err: "/dev/null")
-            if out =~ /Rate limit exceeded/
-              BggTools::Logger.debug "rate limit exceeded; backing off then retrying"
-              sleep backoff
-              backoff = backoff * 2
-            elsif st.to_i != 0
-              BggTools::Logger.debug "non-zero status; sleeping then retrying: #{st.to_i}"
-              sleep backoff
-            else
-              state = :ok
+          uri = URI(url)
+          Net::HTTP.start(uri.host, uri.port, use_ssl: true, verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
+            until state == :ok
+              BggTools::Logger.debug "making req to #{url}"
+
+              req = Net::HTTP::Get.new(uri)
+              req["Authorization"] = "GeekAuth #{BggTools::GeekAuth.get}" if auth
+
+              res = http.request(req)
+
+              case res.code.to_i
+              when 429
+                BggTools::Logger.debug "rate limit exceeded; backing off then retrying"
+                sleep backoff
+                backoff = backoff * 2
+              when (200..299)
+                out = res.body
+                state = :ok
+              when 302
+                if res["location"].start_with?("/login")
+                  BggTools::Logger.error "session expired!"
+                  raise
+                end
+
+                BggTools::Logger.debug "unhandled 302 status; sleeping then retrying"
+                BggTools::Logger.debug res["location"]
+                sleep backoff
+              else
+                BggTools::Logger.debug "non-200 status; sleeping then retrying: #{res.code.to_i}"
+                BggTools::Logger.debug res.body
+                sleep backoff
+              end
             end
           end
 

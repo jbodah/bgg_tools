@@ -2,6 +2,15 @@ Enumerable.module_eval do
   def index_by(&blk)
     self.map(&blk).zip(self).to_h
   end
+
+  def to_items
+    self.map(&:item_id).each_slice(100).flat_map do |slice|
+      doc = BggTools::API.download_things(item_ids: slice)
+      doc.xpath('.//items/item').map do |raw_item|
+        BggTools::Item.new(raw_item)
+      end
+    end
+  end
 end
 
 Object.class_eval do

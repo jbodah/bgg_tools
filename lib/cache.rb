@@ -15,7 +15,11 @@ module BggTools
         end
       end
 
-      def without_cache(&blk)
+      def fetch(key)
+        @cache.fetch(key)
+      end
+
+      def ignore(&blk)
         prev = @cache
         begin
           set_cache(nil)
@@ -25,7 +29,7 @@ module BggTools
         end
       end
 
-      def overwrite_cache(&blk)
+      def overwrite(&blk)
         @state = :overwrite
         blk.call
       ensure
