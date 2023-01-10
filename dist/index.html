@@ -109,7 +109,14 @@ ${this.comment}
           }
         }
         req.open('GET', url, false);
-        req.send();
+        try {
+          req.send();
+        } catch (_) {
+          logEvent(`failed; retrying`);
+          // Try again to get around sporadic CORS...
+          req.send();
+          logEvent(`failed on retry; possibly a CORS exception?`);
+        }
         return out;
       }
     }
