@@ -155,6 +155,9 @@ ${this.comment}
     function filterNewPlays(userId, plays) {
       var newPlays = plays.filter((play) => {
         var players = findChildNode(play, "players");
+        if (players == null) {
+          return false;
+        }
         var userPlay = Array.from(players.children).find((p) => p.attributes.username.value == userId);
         return userPlay.attributes.new.value == "1";
       });
