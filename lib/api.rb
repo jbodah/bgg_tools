@@ -57,53 +57,22 @@ module BggTools
         acc
       end
 
-      # def download_plays(user_id:, since:)
-      #   items_by_id = {}
-      #   page = 1
-      #   done = false
-      #   until done == true
-      #     io = http_get "#{BASE}/xmlapi2/plays?user_id=#{user_id}&mindate=#{since}&page=#{page}"
-      #     root = Nokogiri::XML(io)
-      #     root = Node.new(root.children[0])
-      #     plays = root.select("play")
-      #     done = true if plays.size != 100
-      #     page += 1
-      #     plays.each do |play|
-      #       item = play.find("item")
-      #       players = play.find("players").select("player")
-      #       my_play = players.find { |p| p["user_id"] == user_id }
-      #       id = item["objectid"]
-      #       items_by_id[id] ||=  {plays: 0, new: 0, id: id, name: item["name"]}
-      #       items_by_id[id][:plays] += 1
-      #       if my_play["new"] == "1"
-      #         items_by_id[id][:new] = 1
-      #       end
-      #     end
+      def download_thing(item_id:)
+        out = http_get "#{BASE}/xmlapi2/thing?id=#{item_id}&stats=1"
+        Nokogiri::HTML(out)
+      end
+
+      # def download_things(ids:)
+      #   out = http_get "#{BASE}/xmlapi2/thing?id=#{ids.join(',')}"
+      #   bulk = Nokogiri::HTML(out)
+      #   bulk.css('item').map do |doc|
+      #     thing = {}
+      #     thing[:id] = doc.attr('id')
+      #     # thing[:image_id] = File.basename(doc.css('thumbnail')[0].inner_html, ".*").sub('pic', '')
+      #     thing[:name] = doc.xpath(".//name[@type='primary']")[0].attr('value')
+      #     thing
       #   end
-      #   items_by_id
       # end
-
-      def download_thing(id:)
-        thing = {}
-        out = http_get "#{BASE}/xmlapi2/thing?id=#{id}"
-        doc = Nokogiri::HTML(out)
-        thing[:id] = id
-        thing[:image_id] = File.basename(doc.css('thumbnail')[0].inner_html, ".*").sub('pic', '')
-        thing[:name] = doc.xpath(".//name[@type='primary']")[0].attr('value')
-        thing
-      end
-
-      def download_things(ids:)
-        out = http_get "#{BASE}/xmlapi2/thing?id=#{ids.join(',')}"
-        bulk = Nokogiri::HTML(out)
-        bulk.css('item').map do |doc|
-          thing = {}
-          thing[:id] = doc.attr('id')
-          # thing[:image_id] = File.basename(doc.css('thumbnail')[0].inner_html, ".*").sub('pic', '')
-          thing[:name] = doc.xpath(".//name[@type='primary']")[0].attr('value')
-          thing
-        end
-      end
 
       def http_get(url, auth: false)
         BggTools::Cache.maybe_cache(url) do

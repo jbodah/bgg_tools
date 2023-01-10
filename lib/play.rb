@@ -5,7 +5,7 @@ module BggTools
     include BggTools::RawInit
 
     def item
-      BggTools::Item.new(raw.xpath(".//item")[0])
+      BggTools::PlayItem.new(raw.xpath(".//item")[0])
     end
 
     def date
