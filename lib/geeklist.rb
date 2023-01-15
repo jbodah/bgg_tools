@@ -37,6 +37,14 @@ module BggTools
       BggTools::API.http_post_json("https://api.geekdo.com/api/geeklists/#{@list_id}/listitems", json: json)
     end
 
+    def download
+      @raw = BggTools::API.download_list(list_id: @list_id)
+    end
+
+    def entries
+      download.xpath('//item').map { |i| BggTools::GeeklistEntry.new(i) }
+    end
+
     # https://api.geekdo.com/api/listitems?listid=302917&page=1
     # PATCH to https://api.geekdo.com/api/listitems/9411421 to update
   end

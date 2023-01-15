@@ -1,0 +1,28 @@
+#! /usr/bin/env ruby
+
+require_relative '../env'
+Env.load_all
+
+require 'set'
+
+old_list = ARGV[0]
+new_list = ARGV[1]
+
+old_list = BggTools::Geeklist.new(list_id: old_list)
+new_list = BggTools::Geeklist.new(list_id: new_list)
+
+old_set = old_list.entries.map { |e| e.item_id }.to_set
+new_set = new_list.entries.map { |e| e.item_id }.to_set
+
+diff = (old_set - new_set)
+
+old_diff = old_list.entries.select { |e| e.item_id.in?(diff) }
+
+into_top_1000, off_of_list = old_diff.to_items.partition { |i| i.rank <= 1000 }
+
+puts"Here are the games from last list which made it into the top 1000:"
+into_top_1000.sort_by(&:rank).each { |i| puts i.bcc_link + " (##{i.rank})" }
+
+puts
+puts "Here are the games which got knocked off the list due to rating drops:"
+off_of_list.each { |i| puts i.bcc_link + " (#{i.avg_rating})" }

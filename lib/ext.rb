@@ -11,6 +11,10 @@ Enumerable.module_eval do
       end
     end
   end
+
+  def pipe_to_list(list)
+    list.add_all_items(self)
+  end
 end
 
 Object.class_eval do

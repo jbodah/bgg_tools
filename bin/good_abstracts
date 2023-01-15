@@ -1,0 +1,19 @@
+#! /usr/bin/env ruby
+
+require_relative '../env'
+Env.load_all
+
+list_id = ARGV[0]
+raise unless list_id
+
+list = BggTools::Geeklist.new(list_id: list_id)
+
+games = BggTools::Search.search(min_players: 2, max_players: 2, exclusive_player_count: false, family_id: BggTools::Family::ABSTRACT_GAMES)
+
+entries =
+  games
+  .select { |g| g.num_voters >= 30 && g.num_voters < 500 && g.avg_rating > 7 }
+  .sort_by { |g| -g.avg_rating }
+  .map { |g| [g.item_id, "Rank: ##{g.item_rank}\nAvg Rating: #{g.avg_rating}\nNum Voters: #{g.num_voters}"] }
+
+entries.pipe_to_list(list)

@@ -1,0 +1,23 @@
+#! /usr/bin/env ruby
+
+require_relative '../env'
+Env.load_all
+
+list_id = ARGV[0]
+raise unless list_id
+
+list = BggTools::Geeklist.new(list_id: list_id)
+
+games = BggTools::Search.search(family_id: BggTools::Family::TRADITIONAL_CARD_GAMES)
+
+entries =
+  games
+  .select { |g| g.num_voters >= 10 && g.avg_rating > 7 }
+  .sort_by { |g| -g.avg_rating }
+
+items = entries.to_items
+items.select! { |i| i.categories.include?('Card Game') }
+
+puts items
+  .map { |g| [g.id, "Avg Rating: #{g.avg_rating}\nNum Voters: #{g.num_voters}\n\nMechanics: #{g.mechanics.join(', ')}"] }
+  .pipe_to_list(list)

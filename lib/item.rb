@@ -9,6 +9,14 @@ module BggTools
       BggTools::Item.new(raw)
     end
 
+    def bcc_link
+      "[thing=#{id}][/thing]"
+    end
+
+    def id
+      @raw.attr('id')
+    end
+
     def thumbnail
       @raw.xpath('.//item/thumbnail').inner_html
     end
@@ -63,12 +71,20 @@ module BggTools
       @raw.xpath('.//usersrated').first.attr('value').to_i
     end
 
+    def num_voters
+      num_ratings
+    end
+
     def avg_rating
       @raw.xpath('.//ratings/average').first.attr('value').to_f
     end
 
     def bayes_avg_rating
       @raw.xpath('.//ratings/bayesaverage').first.attr('value').to_f
+    end
+
+    def geekrating
+      bayes_avg_rating
     end
 
     def rank

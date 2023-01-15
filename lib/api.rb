@@ -9,13 +9,17 @@ module BggTools
       BASE = "https://boardgamegeek.com"
       MAX_PAGES = Float::INFINITY
 
-      def search_games(max_pages: MAX_PAGES, designer_id: nil, no_expansions: true, min_avg_rating: nil, max_avg_rating: nil, min_voters: nil)
+      def search_games(max_pages: MAX_PAGES, designer_id: nil, no_expansions: true, min_avg_rating: nil, max_avg_rating: nil, min_voters: nil, family_id: nil, min_players: nil, max_players: nil, exclusive_player_count: false)
         params = ""
         params << "&include%5Bdesignerid%5D=#{designer_id}" if designer_id
         params << "&nosubtypes[]=boardgameexpansion" if no_expansions
         params << "&&floatrange%5Bavgrating%5D%5Bmin%5D=#{min_avg_rating}" if min_avg_rating
         params << "&floatrange%5Bavgrating%5D%5Bmax%5D=#{max_avg_rating}" if max_avg_rating
         params << "&range%5Bnumvoters%5D%5Bmin%5D=#{min_voters}" if min_voters
+        params << "&familyids[0]=#{family_id}" if family_id
+        params << "&range%5Bminplayers%5D%5Bmax%5D=#{min_players}" if min_players
+        params << "&range%5Bmaxplayers%5D%5Bmin%5D=#{max_players}" if max_players
+        params << "&playerrangetype=exclusive" if exclusive_player_count
 
         paginate(page_size: 100, max_pages: max_pages) do |page|
           io = http_get "#{BASE}/search/boardgame/page/#{page}?advsearch=1&q=#{params}"
@@ -30,6 +34,11 @@ module BggTools
           root = Nokogiri::HTML(io)
           root.css('tr[@id]').select { |css| css.attr('id') =~ /row_/ }
         end
+      end
+
+      def download_list(list_id:)
+        io = http_get "#{BASE}/xmlapi/geeklist/#{list_id}"
+        Nokogiri::XML(io)
       end
 
       def download_guild_users(guild_id:)
@@ -137,6 +146,10 @@ module BggTools
                 BggTools::Logger.debug "unhandled 302 status; sleeping then retrying"
                 BggTools::Logger.debug res["location"]
                 sleep backoff
+              when body =~ /try again later/
+                BggTools::Logger.debug "async request is being processed; sleeping and retrying"
+                sleep backoff
+                backoff = backoff * 2
               else
                 BggTools::Logger.debug "non-200 status; sleeping then retrying: #{res.code.to_i}"
                 BggTools::Logger.debug res.body
