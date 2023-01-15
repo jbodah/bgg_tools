@@ -1,0 +1,19 @@
+#! /usr/bin/env ruby
+
+require_relative '../env'
+Env.load_all
+
+geeklist_id = ARGV[0]
+raise unless geeklist_id
+
+games = BggTools::Search.search(min_avg_rating: 7.5, min_voters: 1000, no_expansions: true)
+games.select! { |g| g.item_rank > 1000 }
+
+games = games.sort_by { |g| -g.item_rank }
+
+l = BggTools::Geeklist.new(list_id: geeklist_id)
+
+games.each do |g|
+  body = "Rank: ##{g.item_rank}\nAvg Rating: #{g.avg_rating}\nNum Voters: #{g.num_voters}"
+  l.add_item(item_id: g.item_id, body: body)
+end

@@ -9,9 +9,16 @@ module BggTools
       BASE = "https://boardgamegeek.com"
       MAX_PAGES = Float::INFINITY
 
-      def search_games_by_designer(designer_id:, max_pages: MAX_PAGES)
+      def search_games(max_pages: MAX_PAGES, designer_id: nil, no_expansions: true, min_avg_rating: nil, max_avg_rating: nil, min_voters: nil)
+        params = ""
+        params << "&include%5Bdesignerid%5D=#{designer_id}" if designer_id
+        params << "&nosubtypes[]=boardgameexpansion" if no_expansions
+        params << "&&floatrange%5Bavgrating%5D%5Bmin%5D=#{min_avg_rating}" if min_avg_rating
+        params << "&floatrange%5Bavgrating%5D%5Bmax%5D=#{max_avg_rating}" if max_avg_rating
+        params << "&range%5Bnumvoters%5D%5Bmin%5D=#{min_voters}" if min_voters
+
         paginate(page_size: 100, max_pages: max_pages) do |page|
-          io = http_get "#{BASE}/search/boardgame/page/#{page}?advsearch=1&q=&include%5Bdesignerid%5D=#{designer_id}"
+          io = http_get "#{BASE}/search/boardgame/page/#{page}?advsearch=1&q=#{params}"
           root = Nokogiri::HTML(io)
           root.css('tr[@id=row_]')
         end

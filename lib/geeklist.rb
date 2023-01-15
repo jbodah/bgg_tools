@@ -16,6 +16,8 @@ module BggTools
         if t_or_id.is_a?(Array)
           id, body = t_or_id
           add_item(item_id: id, body: body)
+        elsif t_or_id.respond_to?(:item_id)
+          add_item(item_id: t_or_id.item_id, body: "")
         else
           add_item(item_id: t_or_id, body: "")
         end
