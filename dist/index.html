@@ -32,6 +32,11 @@
       </div>
 
       <div>
+        <label for="original_new_to_me">(Optional) Original New-to-Me Link:</label>
+        <input id="original_new_to_me" name="original_new_to_me" type="text"></input>
+      </div>
+
+      <div>
         <label for="dataSource">Data Type:</label>
         <select id="dataSource" name="dataSource">
           <option value="new_to_me">New-to-Me (Monthly)</option>
@@ -47,13 +52,14 @@
           <option value="grimwold">Grimwold</option>
           <option value="gcl">GCL</option>
           <option value="gcl_new_since">New-to-Me Since (GCL-style)</option>
+          <option value="gcl_new_since_changed">New-to-Me Since, Display Change (GCL-style; requires Original New-to-Me Link)</option>
         </select>
       </div>
 
       <div>
         <label for="format">Format:</label>
         <br/>
-        <textarea id="format" style="width: 1000px; height: 100px;"></textarea>
+        <textarea id="format" style="width: 1500px; height: 100px;"></textarea>
       </div>
 
       <div>
@@ -63,14 +69,12 @@
 
     <div>
       <h3>Output</h3>
-      <textarea id="output" style="width: 1300px; height: 500px;"></textarea>
+      <textarea id="output" style="width: 1500px; height: 500px;"></textarea>
     </div>
 
     <div>
       <h3>Event Log</h3>
-      <div id="event_log">
-
-      </div>
+      <pre id="event_log"></pre>
     </div>
   </body>
 
@@ -88,7 +92,10 @@ var prebuiltFormats = {
 "${this.ratingBcc}  [thing=${this.id}]${this.name}[/thing] x${this.totalPlays}",
 
   "gcl_new_since":
-"${this.ratingBcc}  [thing=${this.id}]${this.name}[/thing] x${this.totalPlays} (+${this.playsSinceNewToMe})",
+"${this.ratingBcc}  [thing=${this.id}]${this.name}[/thing] x${this.totalPlays} (${this.playsSinceNewToMe} plays since)",
+
+  "gcl_new_since_changed":
+"${this.prevRatingBcc} → ${this.ratingBcc} ${this.ratingChangeStr} [thing=${this.id}]${this.name}[/thing] x${this.totalPlays} (${this.playsSinceNewToMe} play(s) since)",
 }
 
 function logEvent(text) {
@@ -336,14 +343,35 @@ function generateNewToMeGames(userId, mindate, maxdate) {
   return parsed
 }
 
-function generateNewToMeSinceGames(userId, mindate, maxdate, onlyReplayed) {
+// Parse entry linewise
+function parseItemsAndRatingsFromGeeklistEntryBody(body) {
+  var acc = {};
+
+  body.split("\n").forEach((line) => {
+    var md = line.match(/\[thing=(\d+)\]/i);
+    if (md == null || md.length == 0) { return; }
+    var objectid = md[1];
+
+    var md = line.match(/\[bgcolor=#\w+\]\s*(\d+\.?\d*)\s*\[\/bgcolor]/i);
+    if (md == null || md.length == 0) { return; }
+    var rating = md[1];
+
+    acc[objectid] = {
+      rating: parseFloat(rating)
+    }
+  });
+
+  return acc
+}
+
+function generateNewToMeSinceGames(userId, mindate, maxdate, onlyReplayed, originalNewToMeLink) {
   logEvent(`downloading plays: userId=${userId} mindate=${mindate} maxdate=${maxdate}`);
   var plays = downloadPlays(userId, mindate, maxdate);
   logEvent(`total plays found: playsSize=${plays.length}`);
 
   // Get New-to-Me on the first month...
   var parts = mindate.split('-');
-  var endOfMonth = parts[0] + '-' + parts[1] + '-' + '32';
+  var endOfMonth = `${parts[0]}-${parts[1]}-32`;
 
   var playsOnNewMonth = filterPlaysBefore(plays, endOfMonth);
   var myNewPlays = filterNewPlays(userId, playsOnNewMonth);
@@ -373,8 +401,23 @@ function generateNewToMeSinceGames(userId, mindate, maxdate, onlyReplayed) {
     });
   }
 
+  var originalRatingsByGameID = {};
+
+  if (originalNewToMeLink.length > 0) {
+    var url = new URL(originalNewToMeLink);
+    var resp = syncGet("https://boardgamegeek.com/xmlapi" + url.pathname);
+    var parser = new DOMParser();
+    var xmlDoc = parser.parseFromString(resp, "text/xml");
+    var entryId = url.searchParams.get("itemid");
+    var item = Array.from(xmlDoc.children[0].children).find((node) => node.getAttribute("id") == entryId);
+    originalRatingsByGameID = parseItemsAndRatingsFromGeeklistEntryBody(item.innerHTML);
+  }
+
   var parsed = myCollectionForNewGames.map((thing) => {
-    var objectid = thing.getAttribute("objectid")
+    var objectid = thing.getAttribute("objectid");
+
+    var originalRating = originalRatingsByGameID[objectid];
+
     var obj = {
       id: objectid,
       name: findChildNode(thing, "name").innerHTML,
@@ -393,6 +436,19 @@ function generateNewToMeSinceGames(userId, mindate, maxdate, onlyReplayed) {
       obj.comment = "";
     }
 
+    if (originalRating) {
+      obj.prevRating = originalRating.rating;
+      obj.prevRatingBcc = ratingToRatingBcc(originalRating.rating);
+
+      if (obj.prevRating < obj.rating) {
+        obj.ratingChangeStr = `(+${obj.rating - obj.prevRating})`;
+      } else if (obj.prevRating > obj.rating) {
+        obj.ratingChangeStr = `(-${obj.prevRating - obj.rating})`;
+      } else {
+        obj.ratingChangeStr = "";
+      }
+    }
+
     return obj;
   });
 
@@ -404,18 +460,19 @@ function submitForm(event) {
 
   document.getElementById("output").innerHTML = "";
 
-  var userId = event.target[0].value;
-  var mindate = event.target[1].value;
-  var maxdate = event.target[2].value;
-  var dataSource = event.target[3].value;
-  var templateString = event.target[5].value;
+  var userId = document.getElementById("username").value;
+  var mindate = document.getElementById("mindate").value;
+  var maxdate = document.getElementById("maxdate").value;
+  var originalNewToMeLink = document.getElementById("original_new_to_me").value;
+  var dataSource = document.getElementById("dataSource").value;
+  var templateString = document.getElementById("format").value;
 
   logEvent(`form submitted: userId=${userId} mindate=${mindate} maxdate=${maxdate} dataSource=${dataSource}`);
 
   var dataSourcesToGenerators = {
     "new_to_me": () => generateNewToMeGames(userId, mindate, maxdate),
-    "new_to_me_since": () => generateNewToMeSinceGames(userId, mindate, maxdate, false),
-    "new_to_me_since_only_replayed": () => generateNewToMeSinceGames(userId, mindate, maxdate, true),
+    "new_to_me_since": () => generateNewToMeSinceGames(userId, mindate, maxdate, false, originalNewToMeLink),
+    "new_to_me_since_only_replayed": () => generateNewToMeSinceGames(userId, mindate, maxdate, true, originalNewToMeLink),
   }
 
   var data = dataSourcesToGenerators[dataSource]();
@@ -426,7 +483,9 @@ function submitForm(event) {
     return new Function("return `"+templateString +"`;").call(p);
   });
 
-  document.getElementById("output").innerHTML = formatted.join("\n")
+  var body = formatted.join("\n");
+
+  document.getElementById("output").innerHTML = body;
 }
 
 setFormat(document.getElementById("format_selector").value);
