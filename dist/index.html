@@ -420,10 +420,8 @@ function submitForm(event) {
 
   var data = dataSourcesToGenerators[dataSource]();
 
-  // Sort
   data.sort((a, b) => b.rating - a.rating);
 
-  // Format
   var formatted = data.map((p) => {
     return new Function("return `"+templateString +"`;").call(p);
   });
