@@ -46,6 +46,15 @@
       </div>
 
       <div>
+        <label for="sort_order">Sort Order:</label>
+        <select id="sort_order" name="sort_order">
+          <option value="rating_desc">Rating</option>
+          <option value="prev_rating_desc">Previous Rating</option>
+          <option value="total_plays_desc">Total Plays</option>
+        </select>
+      </div>
+
+      <div>
         <label for="format_selector">Built-in Formats:</label>
         <select id="format_selector" onchange="setFormat(event.target.value)">
           <option value="grimwold">Grimwold</option>
@@ -454,17 +463,19 @@ function generateNewToMeSinceGames(userId, mindate, maxdate, onlyReplayed, origi
   return parsed
 }
 
+// main
 function submitForm(event) {
   event.preventDefault();
 
   document.getElementById("output").innerHTML = "";
 
-  var userId = document.getElementById("username").value;
-  var mindate = document.getElementById("mindate").value;
-  var maxdate = document.getElementById("maxdate").value;
+  var userId              = document.getElementById("username").value;
+  var mindate             = document.getElementById("mindate").value;
+  var maxdate             = document.getElementById("maxdate").value;
   var originalNewToMeLink = document.getElementById("original_new_to_me").value;
-  var dataSource = document.getElementById("dataSource").value;
-  var templateString = document.getElementById("format").value;
+  var sortOrder           = document.getElementById("sort_order").value;
+  var dataSource          = document.getElementById("dataSource").value;
+  var templateString      = document.getElementById("format").value;
 
   logEvent(`form submitted: userId=${userId} mindate=${mindate} maxdate=${maxdate} dataSource=${dataSource}`);
 
@@ -474,9 +485,15 @@ function submitForm(event) {
     "new_to_me_since_only_replayed": () => generateNewToMeSinceGames(userId, mindate, maxdate, true, originalNewToMeLink),
   }
 
+  var sorters = {
+    "rating_desc": ((a, b) => b.rating - a.rating),
+    "prev_rating_desc": ((a, b) => (b.prevRating || 0) - (a.prevRating || 0)),
+    "total_plays_desc": ((a, b) => b.totalPlays - a.totalPlays),
+  }
+
   var data = dataSourcesToGenerators[dataSource]();
 
-  data.sort((a, b) => b.rating - a.rating);
+  data.sort(sorters[sortOrder]);
 
   var formatted = data.map((p) => {
     return new Function("return `"+templateString +"`;").call(p);
