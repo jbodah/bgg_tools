@@ -18,17 +18,17 @@
     <form onsubmit="submitForm(event)">
       <div>
         <label for="username">Username:</label>
-        <input id="username" name="username" type="text"></input>
+        <input id="username" name="username" value="__replace__" type="text"></input>
       </div>
 
       <div>
         <label for="mindate">Min Date:</label>
-        <input id="mindate" name="mindate" value="replace" type="text"></input>
+        <input id="mindate" name="mindate" value="__replace__" type="text"></input>
       </div>
 
       <div>
         <label for="maxdate">Max Date:</label>
-        <input id="maxdate" name="maxdate" value="replace" type="text"></input>
+        <input id="maxdate" name="maxdate" value="__replace__" type="text"></input>
       </div>
 
       <div>
@@ -171,9 +171,9 @@ function syncGet(url, tryNum) {
   }
 }
 
-function downloadPlays(userId, mindate, maxdate) {
+function downloadPlays(username, mindate, maxdate) {
   return plays = paginate(100, (page) => {
-    var resp = syncGet(`https://boardgamegeek.com/xmlapi2/plays?username=${userId}&mindate=${mindate}&maxdate=${maxdate}&page=${page}`);
+    var resp = syncGet(`https://boardgamegeek.com/xmlapi2/plays?username=${username}&mindate=${mindate}&maxdate=${maxdate}&page=${page}`);
     var parser = new DOMParser();
     var xmlDoc = parser.parseFromString(resp, "text/xml");
     //var i = xmlDoc.evaluate(".//play", xmlDoc, null, XPathResult.ANY_TYPE, null);
@@ -181,9 +181,9 @@ function downloadPlays(userId, mindate, maxdate) {
   });
 }
 
-function downloadCollection_RatedPlayed(userId) {
+function downloadCollection_RatedPlayed(username) {
   return paginate(300, (page) => {
-    var resp = syncGet(`https://boardgamegeek.com/xmlapi2/collection?username=${userId}&rated=1&played=1&stats=1&page=${page}`);
+    var resp = syncGet(`https://boardgamegeek.com/xmlapi2/collection?username=${username}&rated=1&played=1&stats=1&page=${page}`);
     var parser = new DOMParser();
     var xmlDoc = parser.parseFromString(resp, "text/xml");
     return Array.from(xmlDoc.children[0].children);
@@ -209,13 +209,13 @@ function paginate(expectedPageSize, getPageFn) {
   return acc;
 }
 
-function filterNewPlays(userId, plays) {
+function filterNewPlays(username, plays) {
   var newPlays = plays.filter((play) => {
     var players = findChildNode(play, "players");
     if (players == null) {
       return false;
     }
-    var userPlay = Array.from(players.children).find((p) => p.attributes.username.value == userId);
+    var userPlay = Array.from(players.children).find((p) => p.attributes.username.value == username);
     return userPlay.attributes.new.value == "1";
   });
   return newPlays;
@@ -319,19 +319,19 @@ function setFormat(format) {
   document.getElementById("format").innerHTML = prebuiltFormats[format];
 }
 
-function generateNewToMeGames(userId, mindate, maxdate) {
-  logEvent(`downloading plays: userId=${userId} mindate=${mindate} maxdate=${maxdate}`);
-  var plays = downloadPlays(userId, mindate, maxdate);
+function generateNewToMeGames(username, mindate, maxdate) {
+  logEvent(`downloading plays: username=${username} mindate=${mindate} maxdate=${maxdate}`);
+  var plays = downloadPlays(username, mindate, maxdate);
   logEvent(`total plays found: playsSize=${plays.length}`);
 
-  var myNewPlays = filterNewPlays(userId, plays);
+  var myNewPlays = filterNewPlays(username, plays);
   logEvent(`new plays found: newPlaysSize=${myNewPlays.length}`);
 
   var myNewGames = mapPlaysToGames(myNewPlays);
 
-  logEvent(`downloading rated/played collection: userId=${userId}`);
-  var myCollection = downloadCollection_RatedPlayed(userId);
-  logEvent(`found n games: userId=${userId} n=${myCollection.length}`);
+  logEvent(`downloading rated/played collection: username=${username}`);
+  var myCollection = downloadCollection_RatedPlayed(username);
+  logEvent(`found n games: username=${username} n=${myCollection.length}`);
   var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
   logEvent(`filtered to n games: n=${myCollectionForNewGames.length}`);
 
@@ -381,9 +381,9 @@ function parseItemsAndRatingsFromGeeklistEntryBody(body) {
   return acc
 }
 
-function generateNewToMeSinceGames(userId, mindate, maxdate, onlyReplayed, originalNewToMeLink) {
-  logEvent(`downloading plays: userId=${userId} mindate=${mindate} maxdate=${maxdate}`);
-  var plays = downloadPlays(userId, mindate, maxdate);
+function generateNewToMeSinceGames(username, mindate, maxdate, onlyReplayed, originalNewToMeLink) {
+  logEvent(`downloading plays: username=${username} mindate=${mindate} maxdate=${maxdate}`);
+  var plays = downloadPlays(username, mindate, maxdate);
   logEvent(`total plays found: playsSize=${plays.length}`);
 
   // Get New-to-Me on the first month...
@@ -391,14 +391,14 @@ function generateNewToMeSinceGames(userId, mindate, maxdate, onlyReplayed, origi
   var endOfMonth = `${parts[0]}-${parts[1]}-32`;
 
   var playsOnNewMonth = filterPlaysBefore(plays, endOfMonth);
-  var myNewPlays = filterNewPlays(userId, playsOnNewMonth);
+  var myNewPlays = filterNewPlays(username, playsOnNewMonth);
   logEvent(`new plays found: newPlaysSize=${myNewPlays.length}`);
 
   var myNewGames = mapPlaysToGames(myNewPlays);
 
-  logEvent(`downloading rated/played collection: userId=${userId}`);
-  var myCollection = downloadCollection_RatedPlayed(userId);
-  logEvent(`found n games: userId=${userId} n=${myCollection.length}`);
+  logEvent(`downloading rated/played collection: username=${username}`);
+  var myCollection = downloadCollection_RatedPlayed(username);
+  logEvent(`found n games: username=${username} n=${myCollection.length}`);
   var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
   logEvent(`filtered to n games: n=${myCollectionForNewGames.length}`);
 
@@ -481,7 +481,7 @@ function submitForm(event) {
 
   document.getElementById("output").innerHTML = "";
 
-  var userId              = document.getElementById("username").value;
+  var username            = document.getElementById("username").value;
   var mindate             = document.getElementById("mindate").value;
   var maxdate             = document.getElementById("maxdate").value;
   var originalNewToMeLink = document.getElementById("original_new_to_me").value;
@@ -489,12 +489,15 @@ function submitForm(event) {
   var dataSource          = document.getElementById("dataSource").value;
   var templateString      = document.getElementById("format").value;
 
-  logEvent(`form submitted: userId=${userId} mindate=${mindate} maxdate=${maxdate} dataSource=${dataSource}`);
+  logEvent(`form submitted: username=${username} mindate=${mindate} maxdate=${maxdate} dataSource=${dataSource}`);
+
+  logEvent(`saving username in local storage. key=username`)
+  window.localStorage.setItem("username", username);
 
   var dataSourcesToGenerators = {
-    "new_to_me": () => generateNewToMeGames(userId, mindate, maxdate),
-    "new_to_me_since": () => generateNewToMeSinceGames(userId, mindate, maxdate, false, originalNewToMeLink),
-    "new_to_me_since_only_replayed": () => generateNewToMeSinceGames(userId, mindate, maxdate, true, originalNewToMeLink),
+    "new_to_me": () => generateNewToMeGames(username, mindate, maxdate),
+    "new_to_me_since": () => generateNewToMeSinceGames(username, mindate, maxdate, false, originalNewToMeLink),
+    "new_to_me_since_only_replayed": () => generateNewToMeSinceGames(username, mindate, maxdate, true, originalNewToMeLink),
   }
 
   var sorters = {
@@ -516,20 +519,35 @@ function submitForm(event) {
   document.getElementById("output").innerHTML = body;
 }
 
+function localStorageGet(key) {
+  var value = window.localStorage.getItem(key);
+  if (value) {
+    logEvent(`got value from local storage. key=${key} value=${value}`)
+  } else {
+    logEvent(`no value returned from local storage. key=${key}`)
+  }
+  return value;
+}
+
 function setDefaults() {
   setFormat(document.getElementById("format_selector").value);
 
   var today = new Date(Date.now()).toISOString().split('T')[0];
   var maxdate = document.getElementById("maxdate");
-  if (maxdate.value == "replace") {
+  if (maxdate.value == "__replace__") {
     maxdate.value = today;
   }
 
   var parts = today.split('-');
   var beginningOfMonth = `${parts[0]}-${parts[1]}-01`;
   var mindate = document.getElementById("mindate");
-  if (mindate.value == "replace") {
+  if (mindate.value == "__replace__") {
     mindate.value = beginningOfMonth;
+  }
+
+  username = document.getElementById("username");
+  if (username.value == "__replace__") {
+    username.value = localStorageGet("username");
   }
 }
 
