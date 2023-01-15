@@ -22,23 +22,28 @@
       </div>
 
       <div>
+        <label for="dataSource">Data Type:</label>
+        <select id="dataSource" name="dataSource">
+          <option value="new_to_me">New-to-Me (Monthly)</option>
+          <option value="new_to_me_since">New-to-Me Since (note: 1st Month considered New-to-Me month)</option>
+          <option value="new_to_me_since_only_replayed">New-to-Me Since, Only Replayed</option>
+        </select>
+      </div>
+
+      <div>
         <label for="format_selector">Built-in Formats:</label>
-        <select onchange="setFormat(event)">
+        <select id="format_selector" onchange="setFormat(event.target.value)">
           <option value="null"></option>
           <option value="grimwold">Grimwold</option>
           <option value="gcl">GCL</option>
+          <option value="gcl_new_since">New-to-Me Since (GCL-style)</option>
         </select>
       </div>
 
       <div>
         <label for="format">Format:</label>
         <br/>
-        <textarea id="format" style="width: 1000px; height: 100px;">
-[size=12][b][thing=${this.id}]${this.name}[/thing] - [COLOR=#00CC00]${this.numPlays} plays[/COLOR] - [/b]${this.ratingBcc}[/size]
-[imageID=${this.imageId} square inline]
-
-${this.comment}
-        </textarea>
+        <textarea id="format" style="width: 1000px; height: 100px;"></textarea>
       </div>
 
       <div>
@@ -60,222 +65,362 @@ ${this.comment}
   </body>
 
   <script>
-    var eventLog = document.getElementById('event_log');
+var eventLog = document.getElementById('event_log');
 
-    var prebuiltFormats = {
-      "grimwold":
-`[size=12][b][thing=\${this.id}]\${this.name}[/thing] - [COLOR=#00CC00]\${this.numPlays} plays[/COLOR] - [/b]\${this.ratingBcc}[/size]
+var prebuiltFormats = {
+  "grimwold":
+`[size=12][b][thing=\${this.id}]\${this.name}[/thing] - [COLOR=#00CC00]\${this.totalPlays} plays[/COLOR] - [/b]\${this.ratingBcc}[/size]
 [imageID=\${this.imageId} square inline]
 
 \${this.comment}`,
-      "gcl":
-"${this.ratingBcc}  [thing=${this.id}]${this.name}[/thing] x${this.numPlays}"
-    }
 
-    function logEvent(text) {
-      console.log(text);
-      eventLog.innerHTML = eventLog.innerHTML + text + "<br />";
-    }
+  "gcl":
+"${this.ratingBcc}  [thing=${this.id}]${this.name}[/thing] x${this.totalPlays}",
 
-    function sleep(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }
+  "gcl_new_since":
+"${this.ratingBcc}  [thing=${this.id}]${this.name}[/thing] x${this.totalPlays} (+${this.playsSinceNewToMe})",
+}
 
-    function syncGet(url) {
-      var backoff = 1
-      while(true) {
-        logEvent(`making req: url=${url}`)
+function logEvent(text) {
+  console.log(text);
+  eventLog.innerHTML = eventLog.innerHTML + text + "<br />";
+}
 
-        var req = new XMLHttpRequest();
-        var out = "";
-        req.onreadystatechange = (resp) => {
-          if (req.readyState === XMLHttpRequest.DONE) {
-            logEvent(`req complete: status=${req.status}`);
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-            if (req.status == 200) {
-              out = req.responseText;
-            } else if (req.status == 202) {
-              var backoffMs = 5000;
-              logEvent(`server wants us to check back later; sleeping and retrying: backoffMs=${backoffMs}`);
-              sleep(backoffMs);
-              out = syncGet(url);
-            } else if (req.status == 429) {
-              var backoffMs = 10000;
-              logEvent(`rate limited; sleeping and retrying: backoffMs=${backoffMs}`);
-              sleep(backoffMs);
-              out = syncGet(url);
-            } else {
-              logEvent(`don't know how to handle status; aborting: status=${req.status} body=${req.responseText}`);
-            }
-          }
-        }
-        req.open('GET', url, false);
-        try {
-          req.send();
-        } catch (_) {
-          logEvent(`failed; retrying`);
-          // Try again to get around sporadic CORS...
-          req.send();
-          logEvent(`failed on retry; possibly a CORS exception?`);
-        }
-        return out;
-      }
-    }
+function syncGet(url) {
+  var backoff = 1
+  while(true) {
+    logEvent(`making req: url=${url}`)
 
-    function downloadPlays(userId, mindate, maxdate) {
-      return plays = paginate(100, (page) => {
-        var resp = syncGet(`https://boardgamegeek.com/xmlapi2/plays?username=${userId}&mindate=${mindate}&maxdate=${maxdate}&page=${page}`);
-        var parser = new DOMParser();
-        var xmlDoc = parser.parseFromString(resp, "text/xml");
-        //var i = xmlDoc.evaluate(".//play", xmlDoc, null, XPathResult.ANY_TYPE, null);
-        return Array.from(xmlDoc.children[0].children);
-      });
-    }
+    var req = new XMLHttpRequest();
+    var out = "";
+    req.onreadystatechange = (resp) => {
+      if (req.readyState === XMLHttpRequest.DONE) {
+        logEvent(`req complete: status=${req.status}`);
 
-    function downloadCollection_RatedPlayed(userId) {
-      return paginate(300, (page) => {
-        var resp = syncGet(`https://boardgamegeek.com/xmlapi2/collection?username=${userId}&rated=1&played=1&stats=1&page=${page}`);
-        var parser = new DOMParser();
-        var xmlDoc = parser.parseFromString(resp, "text/xml");
-        return Array.from(xmlDoc.children[0].children);
-      });
-    }
-
-    function paginate(expectedPageSize, getPageFn) {
-      var acc = [];
-      var page = 1;
-      var done = false;
-      while(done == false) {
-        var pageItems = getPageFn(page);
-        acc = acc.concat(pageItems);
-
-        logEvent(`processed page: pageSize=${pageItems.length} page=${page}`);
-
-        if (pageItems.length != expectedPageSize) {
-          done = true;
+        if (req.status == 200) {
+          out = req.responseText;
+        } else if (req.status == 202) {
+          var backoffMs = 5000;
+          logEvent(`server wants us to check back later; sleeping and retrying: backoffMs=${backoffMs}`);
+          sleep(backoffMs);
+          out = syncGet(url);
+        } else if (req.status == 429) {
+          var backoffMs = 10000;
+          logEvent(`rate limited; sleeping and retrying: backoffMs=${backoffMs}`);
+          console.log(req.responseText);
+          sleep(backoffMs);
+          out = syncGet(url);
+        } else if (req.status == 0) {
+          var backoffMs = 10000;
+          logEvent(`assuming status of 0 means retry later; sleeping and retrying: backoffMs=${backoffMs}`);
+          console.log(req.responseText);
+          sleep(backoffMs);
+          out = syncGet(url);
         } else {
-          page = page + 1;
+          logEvent(`don't know how to handle status; aborting: status=${req.status} body=${req.responseText}`);
         }
       }
-      return acc;
+    }
+    req.open('GET', url, false);
+    try {
+      req.send();
+    } catch (_) {
+      logEvent(`failed; retrying`);
+      // Try again to get around sporadic CORS...
+      req.send();
+      logEvent(`failed on retry; possibly a CORS exception?`);
+    }
+    return out;
+  }
+}
+
+function downloadPlays(userId, mindate, maxdate) {
+  return plays = paginate(100, (page) => {
+    var resp = syncGet(`https://boardgamegeek.com/xmlapi2/plays?username=${userId}&mindate=${mindate}&maxdate=${maxdate}&page=${page}`);
+    var parser = new DOMParser();
+    var xmlDoc = parser.parseFromString(resp, "text/xml");
+    //var i = xmlDoc.evaluate(".//play", xmlDoc, null, XPathResult.ANY_TYPE, null);
+    return Array.from(xmlDoc.children[0].children);
+  });
+}
+
+function downloadCollection_RatedPlayed(userId) {
+  return paginate(300, (page) => {
+    var resp = syncGet(`https://boardgamegeek.com/xmlapi2/collection?username=${userId}&rated=1&played=1&stats=1&page=${page}`);
+    var parser = new DOMParser();
+    var xmlDoc = parser.parseFromString(resp, "text/xml");
+    return Array.from(xmlDoc.children[0].children);
+  });
+}
+
+function paginate(expectedPageSize, getPageFn) {
+  var acc = [];
+  var page = 1;
+  var done = false;
+  while(done == false) {
+    var pageItems = getPageFn(page);
+    acc = acc.concat(pageItems);
+
+    logEvent(`processed page: pageSize=${pageItems.length} page=${page}`);
+
+    if (pageItems.length != expectedPageSize) {
+      done = true;
+    } else {
+      page = page + 1;
+    }
+  }
+  return acc;
+}
+
+function filterNewPlays(userId, plays) {
+  var newPlays = plays.filter((play) => {
+    var players = findChildNode(play, "players");
+    if (players == null) {
+      return false;
+    }
+    var userPlay = Array.from(players.children).find((p) => p.attributes.username.value == userId);
+    return userPlay.attributes.new.value == "1";
+  });
+  return newPlays;
+}
+
+function filterPlaysBefore(plays, date) {
+  var dateParts = date.split('-').map(d => parseInt(d));
+  var playsBefore = plays.filter((play) => {
+    var playDate = play.getAttribute('date');
+    var playDateParts = playDate.split('-').map(d => parseInt(d));
+    return isDateBefore(playDateParts, dateParts);
+  });
+  return playsBefore;
+}
+
+// Return 0 if dates eql. Return -1 if first less than second. Return 1 if first greater than second
+function dateCompare(first, second) {
+  fstY = first[0];
+  fstM = first[1];
+  fstD = first[2];
+
+  secY = second[0];
+  secM = second[1];
+  secD = second[2];
+
+  if (secY > fstY) { return -1; }
+  if (secY < fstY) { return 1; }
+  if (secM > fstM) { return -1; }
+  if (secM < fstM) { return 1; }
+  if (secD > fstD) { return -1; }
+  if (secD < fstD) { return 1; }
+
+  return 0;
+}
+
+function isDateAfter(first, second) {
+  return dateCompare(first, second) == 1;
+}
+
+function isDateBefore(first, second) {
+  return dateCompare(first, second) == -1;
+}
+
+function filterPlaysBetween(plays, mindate, maxdate) {
+  var minDateParts = mindate.split('-').map(d => parseInt(d));
+  var maxDateParts = maxdate.split('-').map(d => parseInt(d));
+
+  var playsBetween = plays.filter((play) => {
+    var playDate = play.getAttribute('date');
+    var playDateParts = playDate.split('-').map(d => parseInt(d));
+    var afterMinDate = isDateAfter(playDateParts, minDateParts);
+    var beforeMaxDate = isDateBefore(playDateParts, maxDateParts);
+    return afterMinDate && beforeMaxDate;
+  });
+  return playsBetween;
+}
+
+function mapPlaysToGames(plays) {
+  return plays.map((p) => p.children[0]);
+}
+
+function filterCollectionToGames(collection, gameIds) {
+  return collection.filter((thing) => gameIds.includes(thing.getAttribute("objectid")));
+}
+
+function findChildNode(node, childNodeName) {
+  return Array.from(node.children).find((n) => n.nodeName == childNodeName)
+}
+
+function parseImageIdFromUrl(url) {
+  return url.match("\\d+\.\\w+$")[0].split('.')[0];
+}
+
+function ratingToRatingBcc(rating) {
+  var bgcolor = ""
+  if (rating < 2.0) {
+    bgcolor = "#ff0000";
+  } else if (rating < 3.0) {
+    bgcolor = "#ff3366";
+  } else if (rating < 4.0) {
+    bgcolor = "#ff6699";
+  } else if (rating < 5.0) {
+    bgcolor = "#ff66cc";
+  } else if (rating < 6.0) {
+    bgcolor = "#cc99ff";
+  } else if (rating < 7.0) {
+    bgcolor = "#9999ff";
+  } else if (rating < 8.0) {
+    bgcolor = "#99ffff";
+  } else if (rating < 9.0) {
+    bgcolor = "#66ff99";
+  } else if (rating < 10.0) {
+    bgcolor = "#33cc99";
+  } else {
+    bgcolor = "#00cc00";
+  }
+  return `[b][BGCOLOR=${bgcolor}] ${rating} [/BGCOLOR][/b]`;
+}
+
+function setFormat(format) {
+  document.getElementById("format").innerHTML = prebuiltFormats[format];
+}
+
+function generateNewToMeGames(userId, mindate, maxdate) {
+  logEvent(`downloading plays: userId=${userId} mindate=${mindate} maxdate=${maxdate}`);
+  var plays = downloadPlays(userId, mindate, maxdate);
+  logEvent(`total plays found: playsSize=${plays.length}`);
+
+  var myNewPlays = filterNewPlays(userId, plays);
+  logEvent(`new plays found: newPlaysSize=${myNewPlays.length}`);
+
+  var myNewGames = mapPlaysToGames(myNewPlays);
+
+  logEvent(`downloading rated/played collection: userId=${userId}`);
+  var myCollection = downloadCollection_RatedPlayed(userId);
+  logEvent(`found n games: userId=${userId} n=${myCollection.length}`);
+  var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
+
+  var parsed = myCollectionForNewGames.map((thing) => {
+    var obj = {
+      id: thing.getAttribute("objectid"),
+      name: findChildNode(thing, "name").innerHTML,
+      imageId: parseImageIdFromUrl(findChildNode(thing, "thumbnail").innerHTML),
+      rating: parseFloat(findChildNode(findChildNode(thing, "stats"), "rating").getAttribute("value")),
+      totalPlays: parseInt(findChildNode(thing, "numplays").innerHTML),
+      playsSinceNewToMe: 0
+    };
+
+    obj.ratingBcc = ratingToRatingBcc(obj.rating);
+
+    var comment = findChildNode(thing, "comment");
+    if (comment) {
+      obj.comment = comment.innerHTML;
+    } else {
+      obj.comment = "";
     }
 
-    function filterNewPlays(userId, plays) {
-      var newPlays = plays.filter((play) => {
-        var players = findChildNode(play, "players");
-        if (players == null) {
-          return false;
-        }
-        var userPlay = Array.from(players.children).find((p) => p.attributes.username.value == userId);
-        return userPlay.attributes.new.value == "1";
-      });
-      return newPlays;
+    return obj;
+  });
+
+  return parsed
+}
+
+function generateNewToMeSinceGames(userId, mindate, maxdate, onlyReplayed) {
+  logEvent(`downloading plays: userId=${userId} mindate=${mindate} maxdate=${maxdate}`);
+  var plays = downloadPlays(userId, mindate, maxdate);
+  logEvent(`total plays found: playsSize=${plays.length}`);
+
+  // Get New-to-Me on the first month...
+  var parts = mindate.split('-');
+  var endOfMonth = parts[0] + '-' + parts[1] + '-' + '32';
+
+  var playsOnNewMonth = filterPlaysBefore(plays, endOfMonth);
+  var myNewPlays = filterNewPlays(userId, playsOnNewMonth);
+  logEvent(`new plays found: newPlaysSize=${myNewPlays.length}`);
+
+  var myNewGames = mapPlaysToGames(myNewPlays);
+
+  logEvent(`downloading rated/played collection: userId=${userId}`);
+  var myCollection = downloadCollection_RatedPlayed(userId);
+  logEvent(`found n games: userId=${userId} n=${myCollection.length}`);
+  var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
+
+  // Get replays...
+  var playsSince = filterPlaysBetween(plays, endOfMonth, maxdate);
+  var gamesPlayedSince = mapPlaysToGames(playsSince);
+  var replayCountsByGameId = {};
+  gamesPlayedSince.forEach((game) => {
+    var objectid = game.getAttribute("objectid");
+    var prev = replayCountsByGameId[objectid] || 0;
+    replayCountsByGameId[objectid] = prev + 1;
+  });
+
+  if (onlyReplayed) {
+    myCollectionForNewGames = myCollectionForNewGames.filter((thing) => {
+      var objectid = thing.getAttribute("objectid");
+      return replayCountsByGameId[objectid] > 0;
+    });
+  }
+
+  var parsed = myCollectionForNewGames.map((thing) => {
+    var objectid = thing.getAttribute("objectid")
+    var obj = {
+      id: objectid,
+      name: findChildNode(thing, "name").innerHTML,
+      imageId: parseImageIdFromUrl(findChildNode(thing, "thumbnail").innerHTML),
+      rating: parseFloat(findChildNode(findChildNode(thing, "stats"), "rating").getAttribute("value")),
+      totalPlays: parseInt(findChildNode(thing, "numplays").innerHTML),
+      playsSinceNewToMe: replayCountsByGameId[objectid] || 0,
+    };
+
+    obj.ratingBcc = ratingToRatingBcc(obj.rating);
+
+    var comment = findChildNode(thing, "comment");
+    if (comment) {
+      obj.comment = comment.innerHTML;
+    } else {
+      obj.comment = "";
     }
 
-    function mapPlaysToGames(plays) {
-      return plays.map((p) => p.children[0]);
-    }
+    return obj;
+  });
 
-    function filterCollectionToGames(collection, gameIds) {
-      return collection.filter((thing) => gameIds.includes(thing.getAttribute("objectid")));
-    }
+  return parsed
+}
 
-    function findChildNode(node, childNodeName) {
-      return Array.from(node.children).find((n) => n.nodeName == childNodeName)
-    }
+function submitForm(event) {
+  event.preventDefault();
 
-    function parseImageIdFromUrl(url) {
-      return url.match("\\d+\.\\w+$")[0].split('.')[0];
-    }
+  document.getElementById("output").innerHTML = "";
 
-    function ratingToRatingBcc(rating) {
-      var bgcolor = ""
-      if (rating < 2.0) {
-        bgcolor = "#ff0000";
-      } else if (rating < 3.0) {
-        bgcolor = "#ff3366";
-      } else if (rating < 4.0) {
-        bgcolor = "#ff6699";
-      } else if (rating < 5.0) {
-        bgcolor = "#ff66cc";
-      } else if (rating < 6.0) {
-        bgcolor = "#cc99ff";
-      } else if (rating < 7.0) {
-        bgcolor = "#9999ff";
-      } else if (rating < 8.0) {
-        bgcolor = "#99ffff";
-      } else if (rating < 9.0) {
-        bgcolor = "#66ff99";
-      } else if (rating < 10.0) {
-        bgcolor = "#33cc99";
-      } else {
-        bgcolor = "#00cc00";
-      }
-      return `[b][BGCOLOR=${bgcolor}] ${rating} [/BGCOLOR][/b]`;
-    }
+  var userId = event.target[0].value;
+  var mindate = event.target[1].value;
+  var maxdate = event.target[2].value;
+  var dataSource = event.target[3].value;
+  var templateString = event.target[5].value;
 
-    function setFormat(event) {
-      document.getElementById("format").innerHTML = prebuiltFormats[event.target.value];
-    }
+  logEvent(`form submitted: userId=${userId} mindate=${mindate} maxdate=${maxdate} dataSource=${dataSource}`);
 
-    function submitForm(event) {
-      event.preventDefault();
+  var dataSourcesToGenerators = {
+    "new_to_me": () => generateNewToMeGames(userId, mindate, maxdate),
+    "new_to_me_since": () => generateNewToMeSinceGames(userId, mindate, maxdate, false),
+    "new_to_me_since_only_replayed": () => generateNewToMeSinceGames(userId, mindate, maxdate, true),
+  }
 
-      document.getElementById("output").innerHTML = "";
+  var data = dataSourcesToGenerators[dataSource]();
 
-      var userId = event.target[0].value;
-      var mindate = event.target[1].value;
-      var maxdate = event.target[2].value;
-      var templateString = event.target[4].value;
+  // Sort
+  data.sort((a, b) => b.rating - a.rating);
 
-      logEvent(`form submitted: userId=${userId} mindate=${mindate}`);
+  // Format
+  var formatted = data.map((p) => {
+    return new Function("return `"+templateString +"`;").call(p);
+  });
 
-      logEvent(`downloading plays: userId=${userId} mindate=${mindate} maxdate=${maxdate}`);
-      var plays = downloadPlays(userId, mindate, maxdate);
-      logEvent(`total plays found: playsSize=${plays.length}`);
+  document.getElementById("output").innerHTML = formatted.join("\n")
+}
 
-      var myNewPlays = filterNewPlays(userId, plays);
-      logEvent(`new plays found: newPlaysSize=${myNewPlays.length}`);
-
-      var myNewGames = mapPlaysToGames(myNewPlays);
-
-      logEvent(`downloading rated/played collection: userId=${userId}`);
-      var myCollection = downloadCollection_RatedPlayed(userId);
-      logEvent(`found n games: userId=${userId} n=${myCollection.length}`);
-      var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
-
-      var parsed = myCollectionForNewGames.map((thing) => {
-        var obj = {
-          id: thing.getAttribute("objectid"),
-          name: findChildNode(thing, "name").innerHTML,
-          imageId: parseImageIdFromUrl(findChildNode(thing, "thumbnail").innerHTML),
-          rating: parseFloat(findChildNode(findChildNode(thing, "stats"), "rating").getAttribute("value")),
-          numPlays: findChildNode(thing, "numplays").innerHTML
-        };
-
-        obj.ratingBcc = ratingToRatingBcc(obj.rating);
-
-        var comment = findChildNode(thing, "comment");
-        if (comment) {
-          obj.comment = comment.innerHTML;
-        } else {
-          obj.comment = "";
-        }
-
-        return obj;
-      })
-
-      // Sort
-      parsed.sort((a, b) => b.rating - a.rating);
-
-      // TODO: built-in formatters
-
-      // Format
-      var formatted = parsed.map((p) => {
-        return new Function("return `"+templateString +"`;").call(p);
-      });
-
-      document.getElementById("output").innerHTML = formatted.join("\n")
-    }
+setFormat(document.getElementById("format_selector").value);
   </script>
 </html>
