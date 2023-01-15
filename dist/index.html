@@ -148,7 +148,7 @@ function syncGet(url) {
       logEvent(`failed; retrying`);
       // Try again to get around sporadic CORS...
       req.send();
-      logEvent(`failed on retry; possibly a CORS exception?`);
+      logEvent(`failed on retry; possibly a CORS exception? trying again shortly usually fixes this`);
     }
     return out;
   }
