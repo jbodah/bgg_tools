@@ -23,12 +23,12 @@
 
       <div>
         <label for="mindate">Min Date:</label>
-        <input id="mindate" name="mindate" value="2022-12-01" type="text"></input>
+        <input id="mindate" name="mindate" value="replace" type="text"></input>
       </div>
 
       <div>
         <label for="maxdate">Max Date:</label>
-        <input id="maxdate" name="maxdate" value="2022-12-31" type="text"></input>
+        <input id="maxdate" name="maxdate" value="replace" type="text"></input>
       </div>
 
       <div>
@@ -94,7 +94,8 @@ var prebuiltFormats = {
 `[size=12][b][thing=\${this.id}]\${this.name}[/thing] - [COLOR=#00CC00]\${this.totalPlays} plays[/COLOR] - [/b]\${this.ratingBcc}[/size]
 [imageID=\${this.imageId} square inline]
 
-\${this.comment}`,
+\${this.comment}
+`,
 
   "gcl":
 "${this.ratingBcc}  [thing=${this.id}]${this.name}[/thing] x${this.totalPlays}",
@@ -115,7 +116,14 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function syncGet(url) {
+function syncGet(url, tryNum) {
+  var tryNum = tryNum || 0;
+
+  if (tryNum == 10) {
+    // Be a good citizen and don't slaughter BGG
+    return;
+  }
+
   var backoff = 1
   while(true) {
     logEvent(`making req: url=${url}`)
@@ -144,7 +152,7 @@ function syncGet(url) {
           logEvent(`assuming status of 0 means retry later; sleeping and retrying: backoffMs=${backoffMs}`);
           console.log(req.responseText);
           sleep(backoffMs);
-          out = syncGet(url);
+          out = syncGet(url, tryNum+1);
         } else {
           logEvent(`don't know how to handle status; aborting: status=${req.status} body=${req.responseText}`);
         }
@@ -325,6 +333,7 @@ function generateNewToMeGames(userId, mindate, maxdate) {
   var myCollection = downloadCollection_RatedPlayed(userId);
   logEvent(`found n games: userId=${userId} n=${myCollection.length}`);
   var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
+  logEvent(`filtered to n games: n=${myCollectionForNewGames.length}`);
 
   var parsed = myCollectionForNewGames.map((thing) => {
     var obj = {
@@ -391,9 +400,11 @@ function generateNewToMeSinceGames(userId, mindate, maxdate, onlyReplayed, origi
   var myCollection = downloadCollection_RatedPlayed(userId);
   logEvent(`found n games: userId=${userId} n=${myCollection.length}`);
   var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
+  logEvent(`filtered to n games: n=${myCollectionForNewGames.length}`);
 
   // Get replays...
   var playsSince = filterPlaysBetween(plays, endOfMonth, maxdate);
+  logEvent(`found to n plays since maxdate: n=${playsSince.length} maxdate=${maxdate}`);
   var gamesPlayedSince = mapPlaysToGames(playsSince);
   var replayCountsByGameId = {};
   gamesPlayedSince.forEach((game) => {
@@ -407,6 +418,7 @@ function generateNewToMeSinceGames(userId, mindate, maxdate, onlyReplayed, origi
       var objectid = thing.getAttribute("objectid");
       return replayCountsByGameId[objectid] > 0;
     });
+    logEvent(`only want replayed games; filtered to n games: n=${playsSince.length} maxdate=${maxdate}`);
   }
 
   var originalRatingsByGameID = {};
@@ -504,6 +516,23 @@ function submitForm(event) {
   document.getElementById("output").innerHTML = body;
 }
 
-setFormat(document.getElementById("format_selector").value);
+function setDefaults() {
+  setFormat(document.getElementById("format_selector").value);
+
+  var today = new Date(Date.now()).toISOString().split('T')[0];
+  var maxdate = document.getElementById("maxdate");
+  if (maxdate.value == "replace") {
+    maxdate.value = today;
+  }
+
+  var parts = today.split('-');
+  var beginningOfMonth = `${parts[0]}-${parts[1]}-01`;
+  var mindate = document.getElementById("mindate");
+  if (mindate.value == "replace") {
+    mindate.value = beginningOfMonth;
+  }
+}
+
+setDefaults();
   </script>
 </html>
