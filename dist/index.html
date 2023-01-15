@@ -48,9 +48,9 @@
       <div>
         <label for="sort_order">Sort Order:</label>
         <select id="sort_order" name="sort_order">
-          <option value="rating_desc">Rating</option>
-          <option value="prev_rating_desc">Previous Rating</option>
-          <option value="total_plays_desc">Total Plays</option>
+          <option value="rating_desc_total_plays_desc">Rating, Total Plays</option>
+          <option value="prev_rating_desc_total_plays_desc">Previous Rating, Total Plays</option>
+          <option value="total_plays_desc_rating_desc">Total Plays, Rating</option>
         </select>
       </div>
 
@@ -190,6 +190,15 @@ function downloadCollection_RatedPlayed(username) {
   });
 }
 
+function downloadCollection_Played(username) {
+  return paginate(300, (page) => {
+    var resp = syncGet(`https://boardgamegeek.com/xmlapi2/collection?username=${username}&played=1&stats=1&page=${page}`);
+    var parser = new DOMParser();
+    var xmlDoc = parser.parseFromString(resp, "text/xml");
+    return Array.from(xmlDoc.children[0].children);
+  });
+}
+
 function paginate(expectedPageSize, getPageFn) {
   var acc = [];
   var page = 1;
@@ -291,7 +300,9 @@ function parseImageIdFromUrl(url) {
 
 function ratingToRatingBcc(rating) {
   var bgcolor = ""
-  if (rating < 2.0) {
+  if (rating < 0) {
+    bgcolor = "#a3a3a3";
+  } else if (rating < 2.0) {
     bgcolor = "#ff0000";
   } else if (rating < 3.0) {
     bgcolor = "#ff3366";
@@ -309,7 +320,7 @@ function ratingToRatingBcc(rating) {
     bgcolor = "#66ff99";
   } else if (rating < 10.0) {
     bgcolor = "#33cc99";
-  } else {
+  } else if (rating == 10.0) {
     bgcolor = "#00cc00";
   }
   return `[b][BGCOLOR=${bgcolor}] ${rating} [/BGCOLOR][/b]`;
@@ -330,17 +341,24 @@ function generateNewToMeGames(username, mindate, maxdate) {
   var myNewGames = mapPlaysToGames(myNewPlays);
 
   logEvent(`downloading rated/played collection: username=${username}`);
-  var myCollection = downloadCollection_RatedPlayed(username);
+  var myCollection = downloadCollection_Played(username);
   logEvent(`found n games: username=${username} n=${myCollection.length}`);
   var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
   logEvent(`filtered to n games: n=${myCollectionForNewGames.length}`);
 
   var parsed = myCollectionForNewGames.map((thing) => {
+    var ratingStr = findChildNode(findChildNode(thing, "stats"), "rating").getAttribute("value");
+    if (ratingStr == "N/A") {
+      var rating = -100
+    } else {
+      var rating = parseFloat(ratingStr);
+    }
+
     var obj = {
       id: thing.getAttribute("objectid"),
       name: findChildNode(thing, "name").innerHTML,
       imageId: parseImageIdFromUrl(findChildNode(thing, "thumbnail").innerHTML),
-      rating: parseFloat(findChildNode(findChildNode(thing, "stats"), "rating").getAttribute("value")),
+      rating: rating,
       totalPlays: parseInt(findChildNode(thing, "numplays").innerHTML),
       playsSinceNewToMe: 0
     };
@@ -397,7 +415,7 @@ function generateNewToMeSinceGames(username, mindate, maxdate, onlyReplayed, ori
   var myNewGames = mapPlaysToGames(myNewPlays);
 
   logEvent(`downloading rated/played collection: username=${username}`);
-  var myCollection = downloadCollection_RatedPlayed(username);
+  var myCollection = downloadCollection_Played(username);
   logEvent(`found n games: username=${username} n=${myCollection.length}`);
   var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
   logEvent(`filtered to n games: n=${myCollectionForNewGames.length}`);
@@ -438,11 +456,18 @@ function generateNewToMeSinceGames(username, mindate, maxdate, onlyReplayed, ori
 
     var originalRating = originalRatingsByGameID[objectid];
 
+    var ratingStr = findChildNode(findChildNode(thing, "stats"), "rating").getAttribute("value");
+    if (ratingStr == "N/A") {
+      var rating = -100
+    } else {
+      var rating = parseFloat(ratingStr);
+    }
+
     var obj = {
       id: objectid,
       name: findChildNode(thing, "name").innerHTML,
       imageId: parseImageIdFromUrl(findChildNode(thing, "thumbnail").innerHTML),
-      rating: parseFloat(findChildNode(findChildNode(thing, "stats"), "rating").getAttribute("value")),
+      rating: rating,
       totalPlays: parseInt(findChildNode(thing, "numplays").innerHTML),
       playsSinceNewToMe: replayCountsByGameId[objectid] || 0,
     };
@@ -501,9 +526,24 @@ function submitForm(event) {
   }
 
   var sorters = {
-    "rating_desc": ((a, b) => b.rating - a.rating),
-    "prev_rating_desc": ((a, b) => (b.prevRating || 0) - (a.prevRating || 0)),
-    "total_plays_desc": ((a, b) => b.totalPlays - a.totalPlays),
+    "rating_desc_total_plays_desc": ((a, b) => {
+      if (b.rating != a.rating) {
+        return b.rating - a.rating
+      }
+      return b.totalPlays - a.totalPlays
+    }),
+    "prev_rating_desc_total_plays_desc": ((a, b) => {
+      if ((b.prevRating || 0) != (a.prevRating || 0)) {
+        return (b.prevRating || 0) - (a.prevRating || 0)
+      }
+      return b.totalPlays - a.totalPlays
+    }),
+    "total_plays_desc_rating_desc": ((a, b) => {
+      if (b.totalPlays != a.totalPlays) {
+        return b.totalPlays - a.totalPlays
+      }
+      return b.rating - a.rating
+    }),
   }
 
   var data = dataSourcesToGenerators[dataSource]();
