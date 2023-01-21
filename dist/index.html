@@ -1,72 +1,116 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>jbodah > bgg_tools</title>
+<style>
+body {
+  font-family: Helvetica;
+  font-size: 18;
+}
+
+.tooltip {
+  border-bottom: 1px dotted;
+  cursor: help;
+}
+</style>
   </head>
 
   <body>
     <div>
-      <a href="https://github.com/jbodah/bgg_tools/issues/new">Bugs?</a>
+      <div>
+        <a href="https://github.com/jbodah/bgg_tools/issues">Bugs?</a>
+      </div>
+      <div>
+        <a href="https://github.com/jbodah/bgg_tools">Source</a>
+      </div>
     </div>
-    <div>
-      <a href="https://github.com/jbodah/bgg_tools/blob/master/dist/index.html">Contributions?</a>
-    </div>
-    <div>
-      <a href="https://github.com/jbodah/bgg_tools">Source</a>
-    </div>
+
     <br/>
+
     <form onsubmit="submitForm(event)">
-      <div>
-        <label for="username">Username:</label>
-        <input id="username" name="username" value="__replace__" type="text"></input>
-      </div>
+      <table>
+        <tr>
+          <td>
+            <label for="username">Username</label>
+          </td>
+          <td>
+            <input id="username" name="username" value="__replace__" type="text"></input>
+          </td>
+        </tr>
 
-      <div>
-        <label for="mindate">Min Date:</label>
-        <input id="mindate" name="mindate" value="" type="date"></input>
-      </div>
+        <tr>
+          <td>
+            <label for="mindate">Min Date</label>
+          </td>
+          <td>
+            <input id="mindate" name="mindate" value="" type="date"></input>
+          </td>
+        </tr>
 
-      <div>
-        <label for="maxdate">Max Date:</label>
-        <input id="maxdate" name="maxdate" value="" type="date"></input>
-      </div>
+        <tr>
+          <td>
+            <label for="maxdate">Max Date</label>
+          </td>
+          <td>
+            <input id="maxdate" name="maxdate" value="" type="date"></input>
+          </td>
+        </tr>
 
-      <div>
-        <label for="original_new_to_me">(Optional) Original New-to-Me Item Link:</label>
-        <input id="original_new_to_me" name="original_new_to_me" type="text"></input>
-        <a href="https://boardgamegeek.com/thread/297188/new-you-geeklists-announcement-thread">(Announcement Thread)</a>
-      </div>
+        <tr>
+          <td>
+            <label for="original_new_to_me">Original New-to-Me Item URL <span class="tooltip" title="Optional; used to calculate your rating changes since you posted this entry">?</span></label>
+          </td>
+          <td>
+            <input id="original_new_to_me" name="original_new_to_me" type="text"></input>
+            <a href="https://boardgamegeek.com/thread/297188/new-you-geeklists-announcement-thread">(Announcement Thread)</a>
+          </td>
+        </tr>
 
-      <div>
-        <label for="dataSource">Data to Fetch:</label>
-        <select id="dataSource" name="dataSource">
-          <option value="new_to_me">New-to-Me (Monthly)</option>
-          <option value="new_to_me_since">New-to-Me Since (note: 1st Month considered New-to-Me month)</option>
-          <option value="new_to_me_since_only_replayed">New-to-Me Since, Only Replayed</option>
-        </select>
-      </div>
+        <tr>
+          <td>
+            <label for="dataSource">Data to Fetch</label>
+          </td>
+          <td>
+            <select id="dataSource" name="dataSource">
+              <option value="new_to_me">New-to-Me (Monthly)</option>
+              <option value="new_to_me_since">New-to-Me Since (note: 1st Month considered New-to-Me month)</option>
+              <option value="new_to_me_since_only_replayed">New-to-Me Since, Only Replayed</option>
+            </select>
+          </td>
+        </tr>
 
-      <div>
-        <label for="sort_order">Sort Order:</label>
-        <select id="sort_order" name="sort_order">
-          <option value="rating_desc_total_plays_desc">Rating, Total Plays</option>
-          <option value="prev_rating_desc_total_plays_desc">Previous Rating, Total Plays</option>
-          <option value="total_plays_desc_rating_desc">Total Plays, Rating</option>
-        </select>
-      </div>
+        <tr>
+          <td>
+            <label for="sort_order">Sort Order</label>
+          </td>
+          <td>
+            <select id="sort_order" name="sort_order">
+              <option value="rating_desc_total_plays_desc">Rating, Total Plays</option>
+              <option value="prev_rating_desc_total_plays_desc">Previous Rating, Total Plays</option>
+              <option value="total_plays_desc_rating_desc">Total Plays, Rating</option>
+            </select>
+          </td>
+        </tr>
 
-      <div>
-        <label for="format_selector">Built-in Formats:</label>
-        <select id="format_selector" onchange="setFormat(event.target.value)">
-          <option value="grimwold">Grimwold</option>
-          <option value="gcl">GCL</option>
-          <option value="gcl_new_since">New-to-Me Since (GCL-style)</option>
-          <option value="gcl_new_since_changed">New-to-Me Since, Display Change (GCL-style; requires Original New-to-Me Link)</option>
-        </select>
-      </div>
+        <tr>
+          <td>
+            <label for="format_selector">Built-in Formats</label>
+          </td>
+          <td>
+            <select id="format_selector" onchange="setFormat(event.target.value)">
+              <option value="grimwold">Grimwold</option>
+              <option value="gcl">GCL</option>
+              <option value="gcl_new_since">New-to-Me Since (GCL-style)</option>
+              <option value="gcl_new_since_changed">New-to-Me Since, Display Change (GCL-style; requires Original New-to-Me Link)</option>
+            </select>
+          </td>
+        </tr>
+      </table>
 
-      <div>
-        <label for="format">Format:</label>
+      <div style="padding-left: 2px">
+        <label for="format">Format <span class="tooltip" title="Available fields: id, name, imageId, comment, totalPlays, playsSinceNewToMe, rating, ratingBcc, prevRating, prevRatingBcc, ratingChangeStr">?</span></label>
         <br/>
         <textarea id="format" style="width: 1500px; height: 100px;"></textarea>
       </div>
@@ -78,7 +122,7 @@
 
     <div>
       <h3>Output</h3>
-      <textarea id="output" style="width: 1500px; height: 500px;"></textarea>
+      <textarea id="output" style="width: 1500px; height: 500px; padding: 2px;"></textarea>
     </div>
 
     <div>
