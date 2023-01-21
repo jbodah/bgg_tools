@@ -9,12 +9,20 @@ module BggTools
       BggTools::Item.new(raw)
     end
 
+    def url
+      "https://boardgamegeek.com/boardgame/#{id}"
+    end
+
     def bcc_link
       "[thing=#{id}][/thing]"
     end
 
     def id
       @raw.attr('id')
+    end
+
+    def item_id
+      id
     end
 
     def thumbnail
@@ -42,6 +50,29 @@ module BggTools
     end
 
     # poll suggested_numplayers
+    def suggested_numplayers
+      @suggested_numplayers ||=
+        @raw.xpath('.//poll[@name="suggested_numplayers"]/results').reduce({}) do |acc, results|
+          acc[results.attr('numplayers')] = {
+            best: results.xpath('.//result[@value="Best"]').attr('numvotes').value.to_i,
+            recommended: results.xpath('.//result[@value="Recommended"]').attr('numvotes').value.to_i,
+            not_recommended: results.xpath('.//result[@value="Not Recommended"]').attr('numvotes').value.to_i,
+          }
+          acc
+        end
+    end
+
+    def recommended_with?(n)
+      s = suggested_numplayers[n.to_s]
+      return false unless s
+      (s[:recommended] + s[:best]) > s[:not_recommended]
+    end
+
+    def best_with?(n)
+      s = suggested_numplayers[n.to_s]
+      return false unless s
+      s[:best] > (s[:best] + s[:not_recommended])
+    end
 
     def play_time
       @raw.xpath('.//playingtime').first.attr('value').to_i

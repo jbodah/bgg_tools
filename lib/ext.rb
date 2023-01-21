@@ -3,6 +3,16 @@ Enumerable.module_eval do
     self.map(&blk).zip(self).to_h
   end
 
+  def count_by(&blk)
+    acc = {}
+    self.each do |el|
+      key = blk.call(el)
+      acc[key] ||= 0
+      acc[key] += 1
+    end
+    acc
+  end
+
   def to_items
     self.map(&:item_id).each_slice(100).flat_map do |slice|
       doc = BggTools::API.download_things(item_ids: slice)

@@ -9,7 +9,7 @@ module BggTools
       BASE = "https://boardgamegeek.com"
       MAX_PAGES = Float::INFINITY
 
-      def search_games(max_pages: MAX_PAGES, designer_id: nil, no_expansions: true, min_avg_rating: nil, max_avg_rating: nil, min_voters: nil, family_id: nil, min_players: nil, max_players: nil, exclusive_player_count: false)
+      def search_games(max_pages: MAX_PAGES, designer_id: nil, no_expansions: true, min_avg_rating: nil, max_avg_rating: nil, min_voters: nil, family_id: nil, min_players: nil, max_players: nil, exclusive_player_count: false, min_year: nil, max_year: nil)
         params = ""
         params << "&include%5Bdesignerid%5D=#{designer_id}" if designer_id
         params << "&nosubtypes[]=boardgameexpansion" if no_expansions
@@ -20,6 +20,8 @@ module BggTools
         params << "&range%5Bminplayers%5D%5Bmax%5D=#{min_players}" if min_players
         params << "&range%5Bmaxplayers%5D%5Bmin%5D=#{max_players}" if max_players
         params << "&playerrangetype=exclusive" if exclusive_player_count
+        params << "&range%5Byearpublished%5D%5Bmin%5D=#{min_year}" if min_year
+        params << "&range%5Byearpublished%5D%5Bmax%5D=#{max_year}" if max_year
 
         paginate(page_size: 100, max_pages: max_pages) do |page|
           io = http_get "#{BASE}/search/boardgame/page/#{page}?advsearch=1&q=#{params}"
