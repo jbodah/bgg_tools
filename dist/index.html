@@ -108,28 +108,31 @@ var prebuiltFormats = {
 }
 
 function logEvent(text) {
+  var text = `[${Date.now()}] ${text}`;
   console.log(text);
   eventLog.innerHTML = eventLog.innerHTML + text + "<br />";
 }
 
+// TODO
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  logEvent(`sleeping ms=${ms}`);
+  var start = Date.now();
+  while(Date.now() - start < ms) {}
+  return
 }
 
-function syncGet(url, tryNum) {
-  var tryNum = tryNum || 0;
+function syncGet(url) {
+  var tryNum = 0;
+  var out = null;;
+  while(out == null) {
+    if (tryNum == 10) {
+      logEvent(`out of retries!`);
+      return
+    }
 
-  if (tryNum == 10) {
-    // Be a good citizen and don't slaughter BGG
-    return;
-  }
-
-  var backoff = 1
-  while(true) {
     logEvent(`making req: url=${url}`)
-
+    tryNum += 1;
     var req = new XMLHttpRequest();
-    var out = "";
     req.onreadystatechange = (resp) => {
       if (req.readyState === XMLHttpRequest.DONE) {
         logEvent(`req complete: status=${req.status}`);
@@ -138,37 +141,33 @@ function syncGet(url, tryNum) {
           out = req.responseText;
         } else if (req.status == 202) {
           var backoffMs = 5000;
-          logEvent(`server wants us to check back later; sleeping and retrying: backoffMs=${backoffMs}`);
+          logEvent(`server wants us to check back later; sleeping and retrying: backoffMs=${backoffMs} tryNum=${tryNum}`);
           sleep(backoffMs);
-          out = syncGet(url);
         } else if (req.status == 429) {
-          var backoffMs = 10000;
-          logEvent(`rate limited; sleeping and retrying: backoffMs=${backoffMs}`);
+          var backoffMs = 5000;
+          logEvent(`rate limited; sleeping and retrying: backoffMs=${backoffMs} tryNum=${tryNum}`);
           console.log(req.responseText);
           sleep(backoffMs);
-          out = syncGet(url);
         } else if (req.status == 0) {
-          var backoffMs = 10000;
-          logEvent(`assuming status of 0 means retry later; sleeping and retrying: backoffMs=${backoffMs}`);
+          var backoffMs = 5000;
+          logEvent(`assuming status of 0 means retry later; sleeping and retrying: backoffMs=${backoffMs} tryNum=${tryNum}`);
           console.log(req.responseText);
-          sleep(backoffMs);
-          out = syncGet(url, tryNum+1);
+          sleep(backoffMs)
         } else {
-          logEvent(`don't know how to handle status; aborting: status=${req.status} body=${req.responseText}`);
+          logEvent(`don't know how to handle status; aborting: status=${req.status} body=${req.responseText} tryNum=${tryNum}`);
+          throw Exception;
         }
       }
     }
     req.open('GET', url, false);
     try {
       req.send();
-    } catch (_) {
-      logEvent(`failed; retrying`);
+    } catch (DOMException) {
       // Try again to get around sporadic CORS...
-      req.send();
       logEvent(`failed on retry; possibly a CORS exception? trying again shortly usually fixes this`);
     }
-    return out;
   }
+  return out;
 }
 
 function downloadPlays(username, mindate, maxdate) {
@@ -330,6 +329,27 @@ function setFormat(format) {
   document.getElementById("format").innerHTML = prebuiltFormats[format];
 }
 
+function tryParseImageIdFromUrl(thing) {
+  try {
+    return parseImageIdFromUrl(findChildNode(thing, "thumbnail").innerHTML);
+  } catch (_) {
+    return "";
+  }
+}
+
+function getNewGamesFromCollectionAndPlays(collection, plays) {
+  var newPlaysByGame = {};
+  plays.forEach((p) => {
+    var objectid = p.children[0].getAttribute("objectid");
+    if (!newPlaysByGame[objectid]) {
+      newPlaysByGame[objectid] = 0;
+    }
+    newPlaysByGame[objectid] += 1;
+  })
+
+  return collection.filter((thing) => newPlaysByGame[thing.getAttribute("objectid")] == parseInt(findChildNode(thing, "numplays").innerHTML));
+}
+
 function generateNewToMeGames(username, mindate, maxdate) {
   logEvent(`downloading plays: username=${username} mindate=${mindate} maxdate=${maxdate}`);
   var plays = downloadPlays(username, mindate, maxdate);
@@ -357,7 +377,7 @@ function generateNewToMeGames(username, mindate, maxdate) {
     var obj = {
       id: thing.getAttribute("objectid"),
       name: findChildNode(thing, "name").innerHTML,
-      imageId: parseImageIdFromUrl(findChildNode(thing, "thumbnail").innerHTML),
+      imageId: tryParseImageIdFromUrl(thing),
       rating: rating,
       totalPlays: parseInt(findChildNode(thing, "numplays").innerHTML),
       playsSinceNewToMe: 0
