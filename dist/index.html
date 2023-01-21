@@ -337,19 +337,6 @@ function tryParseImageIdFromUrl(thing) {
   }
 }
 
-function getNewGamesFromCollectionAndPlays(collection, plays) {
-  var newPlaysByGame = {};
-  plays.forEach((p) => {
-    var objectid = p.children[0].getAttribute("objectid");
-    if (!newPlaysByGame[objectid]) {
-      newPlaysByGame[objectid] = 0;
-    }
-    newPlaysByGame[objectid] += 1;
-  })
-
-  return collection.filter((thing) => newPlaysByGame[thing.getAttribute("objectid")] == parseInt(findChildNode(thing, "numplays").innerHTML));
-}
-
 function generateNewToMeGames(username, mindate, maxdate) {
   logEvent(`downloading plays: username=${username} mindate=${mindate} maxdate=${maxdate}`);
   var plays = downloadPlays(username, mindate, maxdate);
