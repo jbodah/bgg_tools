@@ -337,21 +337,30 @@ function tryParseImageIdFromUrl(thing) {
   }
 }
 
+function getNewGamesFromCollectionAndPlays(collection, plays) {
+  var newPlaysByGame = {};
+  plays.forEach((p) => {
+    var objectid = p.children[0].getAttribute("objectid");
+    if (!newPlaysByGame[objectid]) {
+      newPlaysByGame[objectid] = 0;
+    }
+    newPlaysByGame[objectid] += 1;
+  })
+
+  return collection.filter((thing) => newPlaysByGame[thing.getAttribute("objectid")] == parseInt(findChildNode(thing, "numplays").innerHTML));
+}
+
 function generateNewToMeGames(username, mindate, maxdate) {
   logEvent(`downloading plays: username=${username} mindate=${mindate} maxdate=${maxdate}`);
   var plays = downloadPlays(username, mindate, maxdate);
   logEvent(`total plays found: playsSize=${plays.length}`);
 
-  var myNewPlays = filterNewPlays(username, plays);
-  logEvent(`new plays found: newPlaysSize=${myNewPlays.length}`);
-
-  var myNewGames = mapPlaysToGames(myNewPlays);
-
   logEvent(`downloading rated/played collection: username=${username}`);
   var myCollection = downloadCollection_Played(username);
-  logEvent(`found n games: username=${username} n=${myCollection.length}`);
-  var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
-  logEvent(`filtered to n games: n=${myCollectionForNewGames.length}`);
+  logEvent(`found n games played in collection: username=${username} n=${myCollection.length}`);
+
+  var myCollectionForNewGames = getNewGamesFromCollectionAndPlays(myCollection, plays);
+  logEvent(`filtered to n new games: n=${myCollectionForNewGames.length}`);
 
   var parsed = myCollectionForNewGames.map((thing) => {
     var ratingStr = findChildNode(findChildNode(thing, "stats"), "rating").getAttribute("value");
@@ -416,34 +425,34 @@ function generateNewToMeSinceGames(username, mindate, maxdate, onlyReplayed, ori
   var endOfMonth = `${parts[0]}-${parts[1]}-32`;
 
   var playsOnNewMonth = filterPlaysBefore(plays, endOfMonth);
-  var myNewPlays = filterNewPlays(username, playsOnNewMonth);
-  logEvent(`new plays found: newPlaysSize=${myNewPlays.length}`);
-
-  var myNewGames = mapPlaysToGames(myNewPlays);
+  logEvent(`new month plays: playsSize=${playsOnNewMonth.length} enddate=${endOfMonth}`);
 
   logEvent(`downloading rated/played collection: username=${username}`);
   var myCollection = downloadCollection_Played(username);
-  logEvent(`found n games: username=${username} n=${myCollection.length}`);
-  var myCollectionForNewGames = filterCollectionToGames(myCollection, myNewGames.map((g) => g.getAttribute("objectid")));
-  logEvent(`filtered to n games: n=${myCollectionForNewGames.length}`);
+  logEvent(`found n total games played in collection: username=${username} n=${myCollection.length}`);
+
+  var myCollectionForNewGames = getNewGamesFromCollectionAndPlays(myCollection, playsOnNewMonth);
+  logEvent(`filtered to n new games which were new to me on new month: n=${myCollectionForNewGames.length}`);
 
   // Get replays...
   var playsSince = filterPlaysBetween(plays, endOfMonth, maxdate);
-  logEvent(`found to n plays since maxdate: n=${playsSince.length} maxdate=${maxdate}`);
+  logEvent(`found to n plays between new month and maxdate: n=${playsSince.length} startdate=${endOfMonth} maxdate=${maxdate}`);
   var gamesPlayedSince = mapPlaysToGames(playsSince);
-  var replayCountsByGameId = {};
+  var sincePlayCountsByGameId = {};
   gamesPlayedSince.forEach((game) => {
     var objectid = game.getAttribute("objectid");
-    var prev = replayCountsByGameId[objectid] || 0;
-    replayCountsByGameId[objectid] = prev + 1;
+    var prev = sincePlayCountsByGameId[objectid] || 0;
+    sincePlayCountsByGameId[objectid] = prev + 1;
   });
+  logEvent(`found n games played between new month and max date: n=${Object.keys(sincePlayCountsByGameId).length}`)
 
   if (onlyReplayed) {
     myCollectionForNewGames = myCollectionForNewGames.filter((thing) => {
       var objectid = thing.getAttribute("objectid");
-      return replayCountsByGameId[objectid] > 0;
+      console.log(thing.children[0].innerHTML);
+      return sincePlayCountsByGameId[objectid] > 0;
     });
-    logEvent(`only want replayed games; filtered to n games: n=${playsSince.length} maxdate=${maxdate}`);
+    logEvent(`only want replayed games; filtered to n replayed games: n=${myCollectionForNewGames.length}`);
   }
 
   var originalRatingsByGameID = {};
@@ -476,7 +485,7 @@ function generateNewToMeSinceGames(username, mindate, maxdate, onlyReplayed, ori
       imageId: parseImageIdFromUrl(findChildNode(thing, "thumbnail").innerHTML),
       rating: rating,
       totalPlays: parseInt(findChildNode(thing, "numplays").innerHTML),
-      playsSinceNewToMe: replayCountsByGameId[objectid] || 0,
+      playsSinceNewToMe: sincePlayCountsByGameId[objectid] || 0,
     };
 
     obj.ratingBcc = ratingToRatingBcc(obj.rating);
