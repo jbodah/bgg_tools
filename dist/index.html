@@ -23,12 +23,12 @@
 
       <div>
         <label for="mindate">Min Date:</label>
-        <input id="mindate" name="mindate" value="__replace__" type="text"></input>
+        <input id="mindate" name="mindate" value="" type="date"></input>
       </div>
 
       <div>
         <label for="maxdate">Max Date:</label>
-        <input id="maxdate" name="maxdate" value="__replace__" type="text"></input>
+        <input id="maxdate" name="maxdate" value="" type="date"></input>
       </div>
 
       <div>
@@ -581,14 +581,14 @@ function setDefaults() {
 
   var today = new Date(Date.now()).toISOString().split('T')[0];
   var maxdate = document.getElementById("maxdate");
-  if (maxdate.value == "__replace__") {
+  if (maxdate.value == "") {
     maxdate.value = today;
   }
 
   var parts = today.split('-');
   var beginningOfMonth = `${parts[0]}-${parts[1]}-01`;
   var mindate = document.getElementById("mindate");
-  if (mindate.value == "__replace__") {
+  if (mindate.value == "") {
     mindate.value = beginningOfMonth;
   }
 
