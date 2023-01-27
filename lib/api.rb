@@ -38,6 +38,10 @@ module BggTools
         end
       end
 
+      def update_comment(item_id:, collid:, comment:)
+        http_post "#{BASE}/geekcollection.php", data: "fieldname=comment&collid=#{collid}&objecttype=thing&objectid=#{item_id}&B1=Save&B1=Cancel&value=#{URI.encode(comment)}&ajax=1&action=savedata"
+      end
+
       def download_list(list_id:)
         io = http_get "#{BASE}/xmlapi/geeklist/#{list_id}"
         Nokogiri::XML(io)
@@ -62,6 +66,17 @@ module BggTools
           root.css('.collection_objectname')
         end.to_a
         ratings
+      end
+
+      def download_prevowned(user_id:)
+        prevowned = []
+        paginate(page_size: 300) do |page|
+          io = http_get "#{BASE}/collection/user/#{user_id}?prevowned=1&subtype=boardgame&page=#{page}"
+          root = Nokogiri::HTML(io)
+          prevowned += root.xpath(".//tr[@id]")
+          root.css('.collection_objectname')
+        end.to_a
+        prevowned
       end
 
       def download_plays(user_id:, since:)
@@ -164,14 +179,16 @@ module BggTools
         end
       end
 
-      def http_post_json(url, json:, auth: true)
+      def http_post(url, data:, auth: true)
         auth_args = []
         if auth
           auth_args = ["-H", "Authorization: GeekAuth #{BggTools::GeekAuth.get}"]
         end
 
         BggTools::Logger.debug "making req to #{url}"
-        out, err, st = Open3.capture3("curl", "-X", "POST", "-d", json, *auth_args, url, err: "/dev/null")
+        out, err, st = Open3.capture3("curl", "-d", data, *auth_args, url, err: "/dev/null")
+        puts out
+        puts err
         if out =~ /Rate limit exceeded/
           BggTools::Logger.debug "rate limit exceeded; backing off then retrying"
           sleep backoff

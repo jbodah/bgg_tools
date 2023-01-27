@@ -30,6 +30,10 @@ module Env
       if File.exists?('.geekauth')
         BggTools::GeekAuth.set(File.read('.geekauth').rstrip)
       end
+
+      if File.exists?('.collid')
+        BggTools::Collection.set_collid(File.read('.collid').rstrip)
+      end
     end
   end
 end

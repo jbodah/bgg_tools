@@ -4,4 +4,13 @@ require_relative '../env'
 Env.load_all
 
 require 'pry'
-Pry.start
+
+class Context
+  def self.const_missing(sym)
+    path = "BggTools::#{sym}"
+    return const_get(path) if const_defined?(path)
+    super
+  end
+end
+ctx = Context.new
+Pry.start(ctx)

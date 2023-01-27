@@ -34,7 +34,7 @@ module BggTools
         "rollsEnabled" => false
       }.to_json
       @idx += 1
-      BggTools::API.http_post_json("https://api.geekdo.com/api/geeklists/#{@list_id}/listitems", json: json)
+      BggTools::API.http_post("https://api.geekdo.com/api/geeklists/#{@list_id}/listitems", data: json)
     end
 
     def download

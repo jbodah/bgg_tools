@@ -1,4 +1,5 @@
 require 'lib/raw_init'
+require 'date'
 
 module BggTools
   class Rating
@@ -35,6 +36,37 @@ module BggTools
     def item_id
       relurl = collection_objectname.css('.primary')[0].attr('href')
       relurl.split('/')[2]
+    end
+
+    def date_commented
+      Date.parse(raw.css('.fr').inner_html.strip).to_s rescue '1900-01-01'
+    end
+
+    def date_rated
+      text = collection_rating.css('.sf').inner_html
+      month = text[0..2]
+      year = text[-4..-1]
+      case month
+      when "Jan" then "#{year}-01-01"
+      when "Feb" then "#{year}-02-01"
+      when "Mar" then "#{year}-03-01"
+      when "Apr" then "#{year}-04-01"
+      when "May" then "#{year}-05-01"
+      when "Jun" then "#{year}-06-01"
+      when "Jul" then "#{year}-07-01"
+      when "Aug" then "#{year}-08-01"
+      when "Sep" then "#{year}-09-01"
+      when "Oct" then "#{year}-10-01"
+      when "Nov" then "#{year}-11-01"
+      when "Dec" then "#{year}-12-01"
+      else
+        raise month
+      end
+    end
+
+    def update_comment(comment = nil)
+      comment = yield(self.comment) if block_given?
+      BggTools::API.update_comment(item_id: item_id, comment: comment, collid: raw.attr('id').sub(/^row_/, ''))
     end
 
     private
