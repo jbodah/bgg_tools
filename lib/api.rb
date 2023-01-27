@@ -39,7 +39,18 @@ module BggTools
       end
 
       def update_comment(item_id:, collid:, comment:)
-        http_post "#{BASE}/geekcollection.php", data: "fieldname=comment&collid=#{collid}&objecttype=thing&objectid=#{item_id}&B1=Save&B1=Cancel&value=#{URI.encode(comment)}&ajax=1&action=savedata"
+        kvp = [
+          ["fieldname", "comment"],
+          ["collid", collid],
+          ["objecttype", "thing"],
+          ["objectid", item_id],
+          ["B1", "Save"],
+          ["B1", "Cancel"],
+          ["value", comment],
+          ["ajax", 1],
+          ["action", "savedata"],
+        ]
+        http_post "#{BASE}/geekcollection.php", data: URI.encode_www_form(kvp)
       end
 
       def download_list(list_id:)
@@ -181,14 +192,9 @@ module BggTools
 
       def http_post(url, data:, auth: true)
         auth_args = []
-        if auth
-          auth_args = ["-H", "Authorization: GeekAuth #{BggTools::GeekAuth.get}"]
-        end
-
+        auth_args = ["-H", "Authorization: GeekAuth #{BggTools::GeekAuth.get}"] if auth
         BggTools::Logger.debug "making req to #{url}"
         out, err, st = Open3.capture3("curl", "-d", data, *auth_args, url, err: "/dev/null")
-        puts out
-        puts err
         if out =~ /Rate limit exceeded/
           BggTools::Logger.debug "rate limit exceeded; backing off then retrying"
           sleep backoff
