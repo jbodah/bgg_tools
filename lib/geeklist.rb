@@ -38,7 +38,7 @@ module BggTools
     end
 
     def download
-      @raw = BggTools::API.download_list(list_id: @list_id)
+      @raw ||= BggTools::API.download_list(list_id: @list_id)
     end
 
     def entries
