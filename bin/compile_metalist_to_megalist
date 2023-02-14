@@ -12,6 +12,8 @@ list = BggTools::Geeklist.new(list_id: metalist_id)
 items_by_id = {}
 list.entries.each do |entry|
   list2 = BggTools::Geeklist.new(list_id: entry.item_id)
+  # TODO: @jbodah 2023-02-14: hack to deal with try again later handling
+  raise if list2.entries.none?
   list2.entries.each do |entry2|
     if entry2.objecttype == "thing" && entry2.subtype == "boardgame"
       items_by_id[entry2.item_id] ||= {lists: [], item: entry2}
