@@ -37,8 +37,12 @@ module BggTools
       BggTools::API.http_post("https://api.geekdo.com/api/geeklists/#{@list_id}/listitems", data: json)
     end
 
+    def link_to_entry(entry)
+      "https://boardgamegeek.com/geeklist/#{@list_id}?itemid=#{entry.entry_id}##{entry.entry_id}"
+    end
+
     def download
-      @raw ||= BggTools::API.download_list(list_id: @list_id)
+      @raw = BggTools::API.download_list(list_id: @list_id)
     end
 
     def entries

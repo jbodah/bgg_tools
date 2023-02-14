@@ -162,9 +162,6 @@ module BggTools
                 BggTools::Logger.debug "rate limit exceeded; backing off then retrying"
                 sleep backoff
                 backoff = backoff * 2
-              when (200..299)
-                out = res.body
-                state = :ok
               when 302
                 if res["location"].start_with?("/login")
                   BggTools::Logger.error "session expired!"
@@ -174,10 +171,13 @@ module BggTools
                 BggTools::Logger.debug "unhandled 302 status; sleeping then retrying"
                 BggTools::Logger.debug res["location"]
                 sleep backoff
-              when body =~ /try again later/
+              when res.body =~ /try again later/
                 BggTools::Logger.debug "async request is being processed; sleeping and retrying"
                 sleep backoff
                 backoff = backoff * 2
+              when (200..299)
+                out = res.body
+                state = :ok
               else
                 BggTools::Logger.debug "non-200 status; sleeping then retrying: #{res.code.to_i}"
                 BggTools::Logger.debug res.body

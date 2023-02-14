@@ -1,0 +1,27 @@
+#! /usr/bin/env ruby
+
+require_relative '../env'
+Env.load_all
+
+metalist_id = ARGV[0]
+new_list_id = ARGV[1]
+raise unless metalist_id && new_list_id
+
+list = BggTools::Geeklist.new(list_id: metalist_id)
+
+items_by_id = {}
+list.entries.each do |entry|
+  list2 = BggTools::Geeklist.new(list_id: entry.item_id)
+  list2.entries.each do |entry2|
+    if entry2.objecttype == "thing" && entry2.subtype == "boardgame"
+      items_by_id[entry2.item_id] ||= {lists: [], item: entry2}
+      items_by_id[entry2.item_id][:lists] << entry2.bcc_link
+    end
+  end
+end
+
+new_list = BggTools::Geeklist.new(list_id: new_list_id)
+
+items_by_id.sort_by { |_, v| v.fetch(:item).item_name }.each do |item_id, item|
+  new_list.add_item(item_id: item_id, body: item.fetch(:lists).join("\n"))
+end
