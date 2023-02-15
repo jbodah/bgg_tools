@@ -68,6 +68,17 @@ module BggTools
         end
       end
 
+      def download_owned(user_id:)
+        ratings = []
+        paginate(page_size: 300) do |page|
+          io = http_get "#{BASE}/collection/user/#{user_id}?own=1&subtype=boardgame&page=#{page}"
+          root = Nokogiri::HTML(io)
+          ratings += root.xpath(".//tr[@id]")
+          root.css('.collection_objectname')
+        end.to_a
+        ratings
+      end
+
       def download_ratings(user_id:)
         ratings = []
         paginate(page_size: 300) do |page|

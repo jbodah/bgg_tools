@@ -13,6 +13,13 @@ module BggTools
       end
     end
 
+    def owned
+      raw = BggTools::API.download_owned(user_id: user_id)
+      raw.map do |raw|
+        BggTools::Rating.new(raw)
+      end
+    end
+
     def plays(since:)
       raw_plays = BggTools::API.download_plays(user_id: user_id, since: since)
       raw_plays.map do |raw|
