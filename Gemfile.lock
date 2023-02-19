@@ -1,21 +1,32 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    byebug (11.1.3)
     coderay (1.1.3)
+    htmlentities (4.3.4)
     method_source (1.0.0)
+    mini_portile2 (2.8.1)
+    nokogiri (1.14.2)
+      mini_portile2 (~> 2.8.0)
+      racc (~> 1.4)
     nokogiri (1.14.2-arm64-darwin)
       racc (~> 1.4)
     pry (0.14.2)
       coderay (~> 1.1)
       method_source (~> 1.0)
+    pry-byebug (3.10.1)
+      byebug (~> 11.0)
+      pry (>= 0.13, < 0.15)
     racc (1.6.2)
 
 PLATFORMS
   arm64-darwin-22
+  ruby
 
 DEPENDENCIES
+  htmlentities
   nokogiri
-  pry
+  pry-byebug
 
 BUNDLED WITH
    2.3.7

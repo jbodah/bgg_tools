@@ -148,6 +148,11 @@ module BggTools
         Nokogiri::HTML(out)
       end
 
+      def download_item_playstats(item_id:)
+        out = http_get "#{BASE}/playstats/thing/#{item_id}"
+        Nokogiri::HTML(out)
+      end
+
       def http_get(url, auth: false)
         BggTools::Cache.maybe_cache(url) do
           auth_args = []

@@ -1,4 +1,5 @@
 require 'lib/raw_init'
+require 'htmlentities'
 
 module BggTools
   class Item
@@ -18,7 +19,7 @@ module BggTools
     end
 
     def id
-      @raw.attr('id')
+      @raw.attr('id') || @raw.xpath('.//item').attr('id').value
     end
 
     def item_id
@@ -34,7 +35,7 @@ module BggTools
     end
 
     def description
-      @raw.xpath('.//description').first.inner_html
+      HTMLEntities.new.decode(@raw.xpath('.//description').first.text).strip
     end
 
     def yearpublished
@@ -47,6 +48,39 @@ module BggTools
 
     def maxplayers
       @raw.xpath('.//maxplayers').first.attr('value').to_i
+    end
+
+    def reimplementation?
+      @raw.xpath('.//link[@type="boardgameimplementation" and @inbound="true"]').any?
+    end
+
+    def compilation?
+      @raw.xpath('.//link[@type="boardgamecompilation" and @inbound="true"]').any?
+    end
+
+    def series?
+      families.any? { |f| f.start_with?('Series: ') }
+    end
+
+    def integrates_with?
+      @raw.xpath('.//link[@type="boardgameintegration"]').any?
+    end
+
+    def original_game?
+      !integrates_with? && !series? && !compilation? && !reimplementation? && !families.any? { |f| f.start_with?("Game: ") }
+    end
+
+    def published?
+      yearpublished != 0
+    end
+
+    def playstats
+      BggTools::API.download_item_playstats(item_id: item_id)
+    end
+
+    # TODO: @jbodah 2023-02-19: other pages
+    def play_counts
+      playstats.xpath('//table[@class="forum_table"]/tr')[1..-1].map { |p| p.xpath('td')[1].text.to_i }
     end
 
     # poll suggested_numplayers
