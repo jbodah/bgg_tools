@@ -1,0 +1,15 @@
+#! /usr/bin/env ruby
+
+require_relative '../env'
+Env.load_all
+
+geeklist_id = ARGV[0]
+raise unless geeklist_id
+
+games = BggTools::Search.search(min_avg_rating: 8, min_voters: 30, no_expansions: true)
+
+games.select { |g| g.num_voters <= 1000 }.to_items
+  .select { |g| g.original_game? && g.published? && g.yearpublished < 2023 && g.play_counts[1..-1].sum > 80 }
+  .sort_by { |g| g.name }
+  .map { |g| [g.item_id, "#{g.description}\n\nPlayers: #{g.minplayers}-#{g.maxplayers}\nMechanics: #{g.mechanics.join(', ')}\nCategories: #{g.categories.join(', ')}\nFamilies: #{g.families.join(', ')}"] }
+  .pipe_to_list(BggTools::Geeklist.new(list_id: ARGV[0]))
