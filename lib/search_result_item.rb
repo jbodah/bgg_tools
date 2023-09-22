@@ -1,4 +1,5 @@
 require 'lib/raw_init'
+require 'lib/itemable'
 
 module BggTools
   class SearchResultItem
@@ -21,10 +22,6 @@ module BggTools
       @raw.css('a.primary').attr('href').value.split('/')[2]
     end
 
-    def item_bcc_link
-      "[thing=#{item_id}][/thing]"
-    end
-
     def geekrating
       @raw.css('td.collection_bggrating')[0].inner_html.strip.to_f
     end
@@ -38,3 +35,5 @@ module BggTools
     end
   end
 end
+
+BggTools::SearchResultItem.include(BggTools::Itemable)

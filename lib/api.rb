@@ -5,10 +5,10 @@ require 'net/http'
 
 module BggTools
   module API
-    class << self
-      BASE = "https://boardgamegeek.com"
-      MAX_PAGES = Float::INFINITY
+    BASE = "https://boardgamegeek.com"
+    MAX_PAGES = Float::INFINITY
 
+    class << self
       def search_games(max_pages: MAX_PAGES, designer_id: nil, no_expansions: true, min_avg_rating: nil, max_avg_rating: nil, min_voters: nil, family_id: nil, min_players: nil, max_players: nil, exclusive_player_count: false, min_year: nil, max_year: nil)
         params = ""
         params << "&include%5Bdesignerid%5D=#{designer_id}" if designer_id
@@ -148,8 +148,8 @@ module BggTools
         Nokogiri::HTML(out)
       end
 
-      def download_item_playstats(item_id:)
-        out = http_get "#{BASE}/playstats/thing/#{item_id}"
+      def download_item_playstats(item_id: , page: 1)
+        out = http_get "#{BASE}/playstats/thing/#{item_id}/page/#{page}"
         Nokogiri::HTML(out)
       end
 
@@ -163,6 +163,7 @@ module BggTools
           backoff = 1
           state = :not_done
           out = nil
+          url = url.gsub(" ", "%20")
           uri = URI(url)
           Net::HTTP.start(uri.host, uri.port, use_ssl: true, verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
             until state == :ok
@@ -175,7 +176,7 @@ module BggTools
 
               case res.code.to_i
               when 429
-                BggTools::Logger.debug "rate limit exceeded; backing off then retrying"
+                BggTools::Logger.debug "rate limit exceeded; backing off then retrying backoff=#{backoff}"
                 sleep backoff
                 backoff = backoff * 2
               when 302

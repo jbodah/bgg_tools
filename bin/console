@@ -11,6 +11,10 @@ class Context
     return const_get(path) if const_defined?(path)
     super
   end
+
+  def reload
+    Env.reload_all
+  end
 end
 ctx = Context.new
 Pry.start(ctx)

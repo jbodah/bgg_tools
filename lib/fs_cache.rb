@@ -11,7 +11,7 @@ module BggTools
     end
 
     def key?(key)
-      File.exists?(path_for(key))
+      File.exist?(path_for(key))
     end
 
     def clear

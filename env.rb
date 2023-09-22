@@ -27,11 +27,11 @@ module Env
     end
 
     def load_each_env
-      if File.exists?('.geekauth')
+      if File.exist?('.geekauth')
         BggTools::GeekAuth.set(File.read('.geekauth').rstrip)
       end
 
-      if File.exists?('.collid')
+      if File.exist?('.collid')
         BggTools::Collection.set_collid(File.read('.collid').rstrip)
       end
     end

@@ -1,4 +1,5 @@
 require 'lib/raw_init'
+require 'lib/itemable'
 require 'htmlentities'
 
 module BggTools
@@ -27,7 +28,11 @@ module BggTools
     end
 
     def thumbnail
-      @raw.xpath('.//item/thumbnail').inner_html
+      @raw.xpath('.//thumbnail').inner_html
+    end
+
+    def thumbnail_bcc(size:)
+      "[imageid=#{thumbnail.split('/')[-1].split('.')[0][3..-1]} #{size}]"
     end
 
     def name
@@ -72,15 +77,6 @@ module BggTools
 
     def published?
       yearpublished != 0
-    end
-
-    def playstats
-      BggTools::API.download_item_playstats(item_id: item_id)
-    end
-
-    # TODO: @jbodah 2023-02-19: other pages
-    def play_counts
-      playstats.xpath('//table[@class="forum_table"]/tr')[1..-1].map { |p| p.xpath('td')[1].text.to_i }
     end
 
     # poll suggested_numplayers
@@ -187,5 +183,11 @@ module BggTools
     def weight
       @raw.xpath('.//averageweight').first.attr('value').to_f
     end
+
+    def expansion?
+      @raw.xpath('.//item').first.attr("type").value == "boardgameexpansion"
+    end
   end
 end
+
+BggTools::Item.include(BggTools::Itemable)
