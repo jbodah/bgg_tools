@@ -4,6 +4,14 @@ module BggTools
       raise "#{base} must respond to :item_id" unless base.instance_method(:item_id)
     end
 
+    def item
+      @item
+    end
+
+    def item=(item)
+      @item = item
+    end
+
     def playstats(page: 1)
       BggTools::API.download_item_playstats(item_id: item_id, page: page)
     end

@@ -14,12 +14,18 @@ Enumerable.module_eval do
   end
 
   def to_items
-    self.map(&:item_id).each_slice(100).flat_map do |slice|
+    items = self.map(&:item_id).each_slice(100).flat_map do |slice|
       doc = BggTools::API.download_things(item_ids: slice)
       doc.xpath('.//items/item').map do |raw_item|
         BggTools::Item.new(raw_item)
       end
     end
+
+    self.each do |thing|
+      thing.item = items.find { |i| i.item_id.to_i == thing.item_id.to_i }
+    end
+
+    items
   end
 
   def pipe_to_list(list)
@@ -30,6 +36,10 @@ end
 Object.class_eval do
   def in?(enum)
     enum.include?(self)
+  end
+
+  def not_in?(enum)
+    !in?(enum)
   end
 end
 

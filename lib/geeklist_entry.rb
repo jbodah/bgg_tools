@@ -1,4 +1,5 @@
 require 'lib/raw_init'
+require 'lib/itemable'
 
 module BggTools
   class GeeklistEntry
@@ -49,3 +50,5 @@ module BggTools
     end
   end
 end
+
+BggTools::GeeklistEntry.include(BggTools::Itemable)

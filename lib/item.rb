@@ -16,7 +16,7 @@ module BggTools
     end
 
     def bcc_link
-      "[thing=#{id}][/thing]"
+      "[thing=#{id}]#{name}[/thing]"
     end
 
     def id

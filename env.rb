@@ -19,6 +19,12 @@ module Env
       :ok
     end
 
+    def reauth
+      if File.exist?('.geekauth')
+        BggTools::GeekAuth.set(File.read('.geekauth').rstrip)
+      end
+    end
+
     private
 
     def load_once_env
@@ -27,9 +33,7 @@ module Env
     end
 
     def load_each_env
-      if File.exist?('.geekauth')
-        BggTools::GeekAuth.set(File.read('.geekauth').rstrip)
-      end
+      reauth
 
       if File.exist?('.collid')
         BggTools::Collection.set_collid(File.read('.collid').rstrip)

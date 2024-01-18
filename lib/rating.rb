@@ -1,9 +1,17 @@
 require 'lib/raw_init'
+require 'lib/itemable'
 require 'date'
 
 module BggTools
   class Rating
     include BggTools::RawInit
+
+    def style_grimwoldish
+      <<~EOF
+      [size=12][b]#{item.bcc_link} - #{rating_bcc}[/b][/size]
+      #{item.thumbnail_bcc(size: "square inline")}
+      EOF
+    end
 
     def rating_to_bgcolor
       collection_rating.xpath(".//div[@style]")[0].attr("style").split(":")[1][0..-2]
@@ -88,3 +96,5 @@ module BggTools
     end
   end
 end
+
+BggTools::Rating.include(BggTools::Itemable)

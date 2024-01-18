@@ -2,9 +2,9 @@ require 'json'
 
 module BggTools
   class Geeklist
-    def initialize(list_id:)
+    def initialize(list_id:, idx: 1)
       @list_id = list_id
-      @idx = 1
+      @idx = idx
     end
 
     def reset_idx
