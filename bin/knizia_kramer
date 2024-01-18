@@ -1,0 +1,90 @@
+#! /usr/bin/env ruby
+
+require_relative '../env'
+Env.load_all
+
+knizia_games = BggTools::Search.by_designer(designer_id: 2)
+kramer_games = BggTools::Search.by_designer(designer_id: 7)
+
+knizia_items = knizia_games.to_items
+kramer_items = kramer_games.to_items
+
+knizia = {
+  categories: {},
+  mechanics: {},
+  max_play_times: [],
+  min_play_times: [],
+  weights: [],
+  avg_ratings: [],
+}
+knizia_items.map do |i|
+  i.categories.each { |c| knizia[:categories][c] ||= 0; knizia[:categories][c] += 1 }
+  i.mechanics.each { |c| knizia[:mechanics][c] ||= 0; knizia[:mechanics][c] += 1 }
+  knizia[:max_play_times] << i.max_play_time
+  knizia[:min_play_times] << i.min_play_time
+  knizia[:weights] << i.weight
+  knizia[:avg_ratings] << i.avg_rating
+end
+
+kramer = {
+  categories: {},
+  mechanics: {},
+  max_play_times: [],
+  min_play_times: [],
+  weights: [],
+  avg_ratings: [],
+}
+kramer_items.map do |i|
+  i.categories.each { |c| kramer[:categories][c] ||= 0; kramer[:categories][c] += 1 }
+  i.mechanics.each { |c| kramer[:mechanics][c] ||= 0; kramer[:mechanics][c] += 1 }
+  kramer[:max_play_times] << i.max_play_time
+  kramer[:min_play_times] << i.min_play_time
+  kramer[:weights] << i.weight
+  kramer[:avg_ratings] << i.avg_rating
+end
+
+puts
+puts "Knizia Top 20 Categories:"
+knizia[:categories].sort_by { |_, v| v }.reverse.take(20).each do |k, v|
+  puts "* #{k}".ljust(40) + "#{v} (#{(v/knizia_items.size.to_f * 100).round}% of all games)"
+end
+puts
+puts "Knizia Top 20 Mechanics:"
+knizia[:mechanics].sort_by { |_, v| v }.reverse.take(20).each do |k, v|
+  puts "* #{k}".ljust(40) + "#{v} (#{(v/knizia_items.size.to_f * 100).round}% of all games)"
+end
+puts
+puts "Knizia Median Max Play Time: #{knizia[:max_play_times].median}"
+puts "Knizia Median Min Play Time: #{knizia[:min_play_times].median}"
+puts "Knizia Median Weight: #{knizia[:weights].median}"
+puts "Knizia Median Rating: #{knizia[:avg_ratings].median}"
+puts
+puts "====="
+puts
+puts "Kramer Top 20 Categories:"
+kramer[:categories].sort_by { |_, v| v }.reverse.take(20).each do |k, v|
+  puts "* #{k}".ljust(40) + "#{v} (#{(v/kramer_items.size.to_f * 100).round}% of all games)"
+end
+puts
+puts "Kramer Top 20 Mechanics:"
+kramer[:mechanics].sort_by { |_, v| v }.reverse.take(20).each do |k, v|
+  puts "* #{k}".ljust(40) + "#{v} (#{(v/kramer_items.size.to_f * 100).round}% of all games)"
+end
+puts
+puts "Kramer Median Max Play Time: #{kramer[:max_play_times].median}"
+puts "Kramer Median Min Play Time: #{kramer[:min_play_times].median}"
+puts "Kramer Median Weight: #{kramer[:weights].median}"
+puts "Kramer Median Rating: #{kramer[:avg_ratings].median}"
+puts
+puts "====="
+puts
+puts "Side-by-Side: Categories (Knizia left; Kramer right)"
+knizia[:categories].sort_by { |_, v| v }.reverse.take(20).zip(kramer[:categories].sort_by { |_, v| v }.reverse.take(20)).each do |kn, kr|
+  puts "#{kn[0]}".ljust(30) + "(#{(kn[1]/knizia_items.size.to_f * 100).round}%)".ljust(10) + "#{kr[0]}".ljust(30) + "(#{(kr[1]/kramer_items.size.to_f * 100).round}%)"
+end
+puts
+puts "Side-by-Side: Mechanics (Knizia left; Kramer right)"
+knizia[:mechanics].sort_by { |_, v| v }.reverse.take(20).zip(kramer[:mechanics].sort_by { |_, v| v }.reverse.take(20)).each do |kn, kr|
+  puts "#{kn[0]}".ljust(30) + "(#{(kn[1]/knizia_items.size.to_f * 100).round}%)".ljust(10) + "#{kr[0]}".ljust(30) + "(#{(kr[1]/kramer_items.size.to_f * 100).round}%)"
+end
+

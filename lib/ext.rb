@@ -55,4 +55,18 @@ Array.class_eval do
   def mean
     self.sum.to_f / self.size
   end
+
+  def median
+    sorted = self.sort
+
+    if self.size % 2 == 1
+      sorted[self.size/2]
+    else
+      (sorted[self.size/2] + sorted[(self.size-1)/2]) / 2.0
+    end
+  end
+
+  def histogram
+    self.reduce({}) { |acc, el| acc[el] ||= 0; acc[el] += 1; acc }.sort.to_h
+  end
 end
