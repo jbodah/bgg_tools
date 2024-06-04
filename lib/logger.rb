@@ -2,7 +2,7 @@ require 'logger'
 
 module BggTools
   class Logger
-    @logger = ::Logger.new($stdout)
+    @logger = ::Logger.new($stderr)
     @logger.level = ::Logger::DEBUG
 
     class << self

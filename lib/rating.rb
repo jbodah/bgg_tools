@@ -25,6 +25,10 @@ module BggTools
       collection_rating.css('.ratingtext')[0]&.inner_html&.to_f || 0.0
     end
 
+    def to_i
+      rating
+    end
+
     def comment
       collection_comment.css('div').find { |x| x.attr('id').start_with? 'results_comment' }.inner_html.strip.gsub('<br>', "\n")
     end

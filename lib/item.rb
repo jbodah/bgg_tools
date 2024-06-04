@@ -128,6 +128,18 @@ module BggTools
       @raw.xpath('.//link[@type="boardgamefamily"]').map { |l| l.attr('value') }
     end
 
+    def designers
+      @raw.xpath('.//link[@type="boardgamedesigner"]').map { |l| l.attr('value') }
+    end
+
+    def artists
+      @raw.xpath('.//link[@type="boardgameartist"]').map { |l| l.attr('value') }
+    end
+
+    def publishers
+      @raw.xpath('.//link[@type="boardgamepublisher"]').map { |l| l.attr('value') }
+    end
+
     def num_ratings
       @raw.xpath('.//usersrated').first.attr('value').to_i
     end

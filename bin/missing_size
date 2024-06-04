@@ -1,0 +1,8 @@
+#! /usr/bin/env ruby
+
+require_relative '../env'
+Env.load_all
+
+BggTools::Cache.clear
+u = BggTools::User.new(user_id: "hiimjosh")
+puts u.owned.select { |o| o.comment !~ /Size: / }.map(&:item_name)

@@ -1,0 +1,236 @@
+#! /usr/bin/env ruby
+
+require 'pp'
+require_relative '../env'
+Env.load_all
+
+# BggTools::Logger.level = Logger::WARN
+
+$u = BggTools::User.new(user_id: ARGV[0])
+$bias = ARGV[1] ? ARGV[1].to_i : 0
+
+def favorite_mechanics_collection
+  $u.owned.map(&:rating).select { |r| r.to_i > 0 }.flat_map { |r| r.item.mechanics.map { |m| [m, r.to_i]}}.group_by {|k,v|k}.select { |k,v| v.size > $bias + 4 }.map {|k,v| [k, v.map(&:last).mean.round(2), v.size]}.sort_by {|k,v,p| -v}.first(15)
+end
+
+def least_favorite_mechanics_collection
+  $u.owned.map(&:rating).select { |r| r.to_i > 0 }.flat_map { |r| r.item.mechanics.map { |m| [m, r.to_i]}}.group_by {|k,v|k}.select { |k,v| v.size > $bias + 4 }.map {|k,v| [k, v.map(&:last).mean.round(2), v.size]}.sort_by {|k,v,p| -v}.last(15)
+end
+
+def favorite_categories_collection
+  $u.owned.map(&:rating).select { |r| r.to_i > 0 }.flat_map { |r| r.item.categories.map { |m| [m, r.to_i]}}.group_by {|k,v|k}.select { |k,v| v.size > $bias + 4 }.map {|k,v| [k, v.map(&:last).mean.round(2), v.size]}.sort_by {|k,v,p| -v}.first(15)
+end
+
+def least_favorite_categories_collection
+  $u.owned.map(&:rating).select { |r| r.to_i > 0 }.flat_map { |r| r.item.categories.map { |m| [m, r.to_i]}}.group_by {|k,v|k}.select { |k,v| v.size > $bias + 4 }.map {|k,v| [k, v.map(&:last).mean.round(2), v.size]}.sort_by {|k,v,p| -v}.last(15)
+end
+
+def mean_rating_collection
+  $u.owned.map(&:rating).select { |r| r.to_i > 0 }.map(&:to_i).mean.round(2)
+end
+
+def mean_plays_collection
+  $u.owned.select(&:played?).map { |n| n.plays.size }.mean.round(2)
+end
+
+def favorite_words_ratings
+  acc = {}
+  $u.rated.each do |g|
+    g.item.description.split.map(&:downcase).map { |w| w.gsub(/[^\w\d]/, '') }.uniq.each do |word|
+      acc[word] ||= {total: 0, count: 0}
+      acc[word][:total] += g.rating.to_i
+      acc[word][:count] += 1
+    end
+  end
+  acc.transform_values { |v| [(v[:total]/v[:count].to_f).round(2), v[:count]] }
+    .select { |k, (a,b)| b > $bias + 5 }
+    .sort_by { |k, (a,b)| -a }
+    .first(20)
+end
+
+def favorite_words_collection
+  acc = {}
+  $u.owned.select(&:rated?).each do |g|
+    g.item.description.split.map(&:downcase).map { |w| w.gsub(/[^\w\d]/, '') }.uniq.each do |word|
+      acc[word] ||= {total: 0, count: 0}
+      acc[word][:total] += g.rating.to_i
+      acc[word][:count] += 1
+    end
+  end
+  acc.transform_values { |v| [(v[:total]/v[:count].to_f).round(2), v[:count]] }
+    .select { |k, (a,b)| b > $bias + 2 }
+    .sort_by { |k, (a,b)| -a }.first(20)
+end
+
+def mean_plays_by_rating_collection
+  $u.owned.select(&:rated?).select(&:played?).map { |g| [g.rating.to_i, g.plays.size] }.group_by {|a,b| a}.map { |k,v| [k, v.map(&:last)] }.map {|k,v| [k, v.mean.round(2)]}.sort_by {|a,b| a}
+end
+
+def mean_plays_by_rating_ratings
+  $u.rated.select(&:played?).map { |g| [g.rating.to_i, g.plays.size] }.group_by {|a,b| a}.map { |k,v| [k, v.map(&:last)] }.map {|k,v| [k, v.mean.round(2)]}.sort_by {|a,b| a}
+end
+
+def lowest_rank_by_rating_collection
+  $u.owned.select(&:rated?).sort_by { |g| g.item.rank }.map { |g| [g.rating.to_i, g.item.rank, g.item.name] }.group_by_and_repack { |a,b,c| [a, [b,c]] }.transform_values(&:last).sort_by(&:first).reverse
+end
+
+def lowest_avg_rating_by_rating_collection
+  $u.owned.select(&:rated?).sort_by { |g| -g.item.avg_rating }.map { |g| [g.rating.to_i, g.item.avg_rating, g.item.name] }.group_by_and_repack { |a,b,c| [a, [b,c]] }.transform_values(&:last).sort_by(&:first).reverse
+end
+
+def lowest_num_ratings_by_rating_collection
+  $u.owned.select(&:rated?).sort_by { |g| -g.item.num_ratings }.map { |g| [g.rating.to_i, g.item.num_ratings, g.item.name] }.group_by_and_repack { |a,b,c| [a, [b,c]] }.transform_values(&:last).sort_by(&:first).reverse
+end
+
+def most_desirable_by_rating_collection
+  $u.owned.sort_by { |g| g.item.num_want - g.item.num_for_trade }.map { |g| [g.rating.to_i, g.item.num_want - g.item.num_for_trade, g.item.name] }.group_by_and_repack { |a,b,c| [a, [b,c]] }.transform_values(&:last).sort_by(&:first).reverse
+end
+
+def least_desirable_by_rating_collection
+  $u.owned.sort_by { |g| - (g.item.num_want - g.item.num_for_trade) }.map { |g| [g.rating.to_i, - (g.item.num_want - g.item.num_for_trade), g.item.name] }.group_by_and_repack { |a,b,c| [a, [b,c]] }.transform_values(&:last).sort_by(&:first).reverse
+end
+
+def favorite_countries_collection
+  $u.owned.flat_map { |g| g.item.families.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 1}.sort_by {|_, (m, c)| -m}.select { |k, _| k =~ /Country: / }
+end
+
+def favorite_animals_ratings
+  $u.rated.flat_map { |g| g.item.families.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 1}.sort_by {|_, (m, c)| -m}.select { |k, _| k =~ /Animals: / }
+end
+
+def favorite_countries_ratings
+  $u.rated.flat_map { |g| g.item.families.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 2}.sort_by {|_, (m, c)| -m}.select { |k, _| k =~ /Country: / }
+end
+
+def favorite_creatures_ratings
+  $u.rated.flat_map { |g| g.item.families.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 2}.sort_by {|_, (m, c)| -m}.select { |k, _| k =~ /Creatures: / }
+end
+
+def favorite_series_ratings
+  $u.rated.flat_map { |g| g.item.families.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 4}.sort_by {|_, (m, c)| -m}.select { |k, _| k =~ /Series: / }
+end
+
+def favorite_theme_ratings
+  $u.rated.flat_map { |g| g.item.families.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 3}.sort_by {|_, (m, c)| -m}.select { |k, _| k =~ /Theme: / }
+end
+
+def most_theme_collection
+  $u.owned.flat_map { |g| g.item.families.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 1}.sort_by {|_, (m, c)| -c}.select { |k, _| k =~ /Theme: / }
+end
+
+def favorite_yearpublished_ratings
+  $u.rated.map { |g| [g.item.yearpublished, g.rating.to_i] }.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 4}.sort_by {|_, (m, c)| -m}
+end
+
+def favorite_yearpublished_collection
+  $u.owned.map { |g| [g.item.yearpublished, g.rating.to_i] }.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 3}.sort_by {|_, (m, c)| -m}
+end
+
+def most_yearpublished_collection
+  $u.owned.map { |g| [g.item.yearpublished, g.rating.to_i] }.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 2}.sort_by {|_, (m, c)| -c}
+end
+
+def most_6plus_yearpublished_ratings
+  $u.rated.select { |g| g.rating.to_i > 5 }.map { |g| [g.item.yearpublished, g.rating.to_i] }.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 3}.sort_by {|_, (m, c)| -c}
+end
+
+def most_7plus_yearpublished_ratings
+  $u.rated.select { |g| g.rating.to_i > 6 }.map { |g| [g.item.yearpublished, g.rating.to_i] }.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 3}.sort_by {|_, (m, c)| -c}
+end
+
+def most_8plus_yearpublished_ratings
+  $u.rated.select { |g| g.rating.to_i > 7 }.map { |g| [g.item.yearpublished, g.rating.to_i] }.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 3}.sort_by {|_, (m, c)| -c}
+end
+
+def most_9plus_yearpublished_ratings
+  $u.rated.select { |g| g.rating.to_i > 8 }.map { |g| [g.item.yearpublished, g.rating.to_i] }.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 2}.sort_by {|_, (m, c)| -c}
+end
+
+def favorite_designers_ratings
+  $u.rated.flat_map { |g| g.item.designers.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 5}.sort_by {|_, (m, c)| -m}.first(10)
+end
+
+def most_designers_ratings
+  $u.rated.flat_map { |g| g.item.designers.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 5}.sort_by {|_, (m, c)| -c}.first(10)
+end
+
+def favorite_designers_collection
+  $u.owned.flat_map { |g| g.item.designers.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 2}.sort_by {|_, (m, c)| -m}.first(10)
+end
+
+def favorite_publishers_ratings
+  $u.rated.flat_map { |g| g.item.publishers.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 5}.sort_by {|_, (m, c)| -m}.first(10)
+end
+
+def least_favorite_publishers_ratings
+  $u.rated.flat_map { |g| g.item.publishers.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 5}.sort_by {|_, (m, c)| -m}.last(10)
+end
+
+def favorite_publishers_collection
+  $u.owned.flat_map { |g| g.item.publishers.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 5}.sort_by {|_, (m, c)| -m}.first(10)
+end
+
+def least_favorite_publishers_collection
+  $u.owned.flat_map { |g| g.item.publishers.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 5}.sort_by {|_, (m, c)| -m}.last(10)
+end
+
+def favorite_artists_collection
+  $u.owned.flat_map { |g| g.item.artists.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 2}.sort_by {|_, (m, c)| -c}.first(10)
+end
+
+def least_favorite_artists_collection
+  $u.owned.flat_map { |g| g.item.artists.map { |f| [f, g.rating.to_i] }}.group_by_and_repack { |f, r| [f, r] }.transform_values { |rs| [rs.mean.round(2), rs.count] }.select { |_, (m, c)| c > $bias + 2}.sort_by {|_, (m, c)| -m}.first(10)
+end
+
+dimensions = [
+  -> { [favorite_mechanics_collection, "Favorite Mechanics (In Collection)"] },
+  -> { [least_favorite_mechanics_collection, "Least Favorite Mechanics (In Collection)"] },
+  -> { [favorite_categories_collection, "Favorite Categories (In Collection)"] },
+  -> { [least_favorite_categories_collection, "Least Favorite Categories (In Collection)"] },
+  -> { [mean_rating_collection, "Mean Rating (In Collection)"] },
+  -> { [mean_plays_collection, "Mean Plays (In Collection)"] },
+  -> { [favorite_words_ratings, "Favorite Words (All Ratings)"] },
+  -> { [favorite_words_collection, "Favorite Words (In Collection)"] },
+  -> { [mean_plays_by_rating_collection, "Mean Plays By Rating (In Collection)"] },
+  -> { [mean_plays_by_rating_ratings, "Mean Plays By Rating (All Ratings)"] },
+  -> { [lowest_rank_by_rating_collection, "Lowest Rank By Rating (In Collection)"] },
+  -> { [lowest_avg_rating_by_rating_collection, "Lowest Avg Rating By Rating (In Collection)"] },
+  -> { [lowest_num_ratings_by_rating_collection, "Lowest Num Ratings By Rating (In Collection)"] },
+  -> { [most_desirable_by_rating_collection, "Most Desirable By Rating (In Collection)"] },
+  -> { [least_desirable_by_rating_collection, "Least Desirable By Rating (In Collection)"] },
+  -> { [favorite_countries_collection, "Favorite Countries (In Collection)"] },
+  -> { [favorite_animals_ratings, "Favorite Animals (All Ratings)"] },
+  -> { [favorite_countries_ratings, "Favorite Countries (All Ratings)"] },
+  -> { [favorite_creatures_ratings, "Favorite Creatures (All Ratings)"] },
+  -> { [favorite_series_ratings, "Favorite Series (All Ratings)"] },
+  -> { [favorite_theme_ratings, "Favorite Themes (All Ratings)"] },
+  -> { [most_theme_collection, "Most Themes (In Collection)"] },
+  -> { [favorite_yearpublished_ratings, "Favorite Publish-Year (All Ratings)"] },
+  -> { [favorite_yearpublished_collection, "Favorite Publish-Year (In Collection)"] },
+  -> { [most_yearpublished_collection, "Most Publish-Year (In Collection)"] },
+  -> { [most_6plus_yearpublished_ratings, "Most 6+ Publish-Year (All Ratings)"] },
+  -> { [most_7plus_yearpublished_ratings, "Most 7+ Publish-Year (All Ratings)"] },
+  -> { [most_8plus_yearpublished_ratings, "Most 8+ Publish-Year (All Ratings)"] },
+  -> { [most_9plus_yearpublished_ratings, "Most 9+ Publish-Year (All Ratings)"] },
+  -> { [favorite_designers_ratings, "Favorite Designers (All Ratings)"] },
+  -> { [most_designers_ratings, "Most Designers (All Ratings)"] },
+  -> { [favorite_designers_collection, "Favorite Designers (In Collection)"] },
+  -> { [favorite_publishers_ratings, "Favorite Publishers (All Ratings)"] },
+  -> { [least_favorite_publishers_ratings, "Least Favorite Publishers (All Ratings)"] },
+  -> { [favorite_publishers_collection, "Favorite Publishers (In Collection)"] },
+  -> { [least_favorite_publishers_collection, "Least Favorite Publishers (In Collection)"] },
+  -> { [favorite_artists_collection, "Favorite Artists (In Collection)"] },
+  -> { [least_favorite_artists_collection, "Least Favorite Artists (In Collection)"] },
+]
+
+puts "[user=#{ARGV[0]}][/user]"
+puts
+dimensions.each do |c|
+  d = c.call
+  puts <<~EOF
+[size=18]#{d[1]}[/size]
+
+[code]#{d[0].pretty_inspect}[/code]
+
+EOF
+end

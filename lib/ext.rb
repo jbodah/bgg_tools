@@ -13,20 +13,34 @@ Enumerable.module_eval do
     acc
   end
 
-  def to_items
-    items = self.map(&:item_id).each_slice(100).flat_map do |slice|
-      doc = BggTools::API.download_things(item_ids: slice)
-      doc.xpath('.//items/item').map do |raw_item|
-        BggTools::Item.new(raw_item)
-      end
+  def group_by_and_repack(&blk)
+    acc = {}
+    self.each do |el|
+      key, pack = blk.call(el)
+      acc[key] ||= []
+      acc[key] << pack
     end
-
-    self.each do |thing|
-      thing.item = items.find { |i| i.item_id.to_i == thing.item_id.to_i }
-    end
-
-    items
+    acc
   end
+
+  def to_items
+    @to_items ||=
+      begin
+        items = self.map(&:item_id).uniq.each_slice(100).flat_map do |slice|
+          doc = BggTools::API.download_things(item_ids: slice)
+          doc.xpath('.//items/item').map do |raw_item|
+            BggTools::Item.new(raw_item)
+          end
+        end
+
+        self.each do |thing|
+          thing.item = items.find { |i| i.item_id.to_i == thing.item_id.to_i }
+        end
+
+        items
+      end
+  end
+
 
   def pipe_to_list(list)
     list.add_all_items(self)

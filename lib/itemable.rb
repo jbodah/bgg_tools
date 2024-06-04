@@ -59,5 +59,9 @@ module BggTools
     def item_bcc_link
       "[thing=#{item_id}][/thing]"
     end
+
+    def item_name
+      item.name
+    end
   end
 end
