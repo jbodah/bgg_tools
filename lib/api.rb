@@ -3,6 +3,12 @@ require 'nokogiri'
 require 'set'
 require 'net/http'
 
+require 'open3'
+require 'nokogiri'
+require 'set'
+require 'net/http'
+require_relative 'geekauth' # Re-introduce dependency
+
 module BggTools
   module API
     BASE = "https://boardgamegeek.com"
@@ -33,7 +39,7 @@ module BggTools
 
       def browse_games_by_rank(max_pages: MAX_PAGES)
         lazy_paginate(page_size: 100, max_pages: max_pages) do |page|
-          io = http_get "#{BASE}/browse/boardgame/page/#{page}", auth: page > 20
+          io = http_get "#{BASE}/browse/boardgame/page/#{page}", auth: (page > 20 ? :geekauth : :token)
           root = Nokogiri::HTML(io)
           root.css('tr[@id]').select { |css| css.attr('id') =~ /row_/ }
         end
@@ -51,7 +57,7 @@ module BggTools
           ["ajax", 1],
           ["action", "savedata"],
         ]
-        http_post "#{BASE}/geekcollection.php", data: URI.encode_www_form(kvp)
+        http_post "#{BASE}/geekcollection.php", data: URI.encode_www_form(kvp), auth: :geekauth
       end
 
       def download_list(list_id:)
@@ -61,7 +67,7 @@ module BggTools
 
       def download_guild_users(guild_id:)
         paginate(page_size: 25) do |page|
-          io = http_get "#{BASE}/guild/members/#{guild_id}/page/#{page}", auth: true
+          io = http_get "#{BASE}/guild/members/#{guild_id}/page/#{page}", auth: :geekauth
           root = Nokogiri::HTML(io)
           root.css(".username").map do |node|
             node.css('a').inner_html
@@ -139,6 +145,10 @@ module BggTools
         acc
       end
 
+      def token
+        @token ||= File.read(".token").strip
+      end
+
       def download_thing(item_id:)
         out = http_get "#{BASE}/xmlapi2/thing?id=#{item_id}&stats=1"
         Nokogiri::HTML(out)
@@ -154,11 +164,16 @@ module BggTools
         Nokogiri::HTML(out)
       end
 
-      def http_get(url, auth: false)
+      def http_get(url, auth: :token)
         BggTools::Cache.maybe_cache(url) do
-          auth_args = []
-          if auth
-            auth_args = ["-H", "Authorization: GeekAuth #{BggTools::GeekAuth.get}"]
+          auth_header_value = nil
+          case auth
+          when :token
+            auth_header_value = "Bearer #{token}"
+          when :geekauth
+            auth_header_value = "GeekAuth #{BggTools::GeekAuth.get}"
+          else
+            raise "unknown auth type: #{auth}"
           end
 
           backoff = 1
@@ -171,7 +186,7 @@ module BggTools
               BggTools::Logger.debug "making req to #{url}"
 
               req = Net::HTTP::Get.new(uri)
-              req["Authorization"] = "GeekAuth #{BggTools::GeekAuth.get}" if auth
+              req["Authorization"] = auth_header_value
 
               res = http.request(req)
 
@@ -208,9 +223,18 @@ module BggTools
         end
       end
 
-      def http_post(url, data:, auth: true)
-        auth_args = []
-        auth_args = ["-H", "Authorization: GeekAuth #{BggTools::GeekAuth.get}"] if auth
+      def http_post(url, data:, auth: :token)
+        auth_header_value = nil
+        case auth
+        when :token
+          auth_header_value = "Bearer #{token}"
+        when :geekauth
+          auth_header_value = "GeekAuth #{BggTools::GeekAuth.get}"
+        else
+          raise "unknown auth type: #{auth}"
+        end
+
+        auth_args = ["-H", "Authorization: #{auth_header_value}"]
         BggTools::Logger.debug "making req to #{url}"
         out, err, st = Open3.capture3("curl", "-d", data, *auth_args, url, err: "/dev/null")
         if out =~ /Rate limit exceeded/
