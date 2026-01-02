@@ -12,8 +12,12 @@ module BggTools
       raw.xpath(".//item")[0].attr("objectid")
     end
 
+    def game_name
+      playitem.name
+    end
+
     def date
-      raw.attr("date")
+      Date.parse(raw.attr("date"))
     end
   end
 end

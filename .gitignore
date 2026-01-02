@@ -11,3 +11,6 @@
 *.raw
 *.out
 .cache/
+.token
+*.yaml
+*.json

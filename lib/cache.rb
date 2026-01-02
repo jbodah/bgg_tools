@@ -4,14 +4,14 @@ module BggTools
       def maybe_cache(key, &blk)
         return blk.call if @cache.nil?
 
-        if @cache.key?(key) && @state != :overwrite
-          BggTools::Logger.debug("serving key from cache: key=#{key.inspect}")
-          @cache.fetch(key)
-        else
+        if !@cache.key?(key) || overwrite?
           result = blk.call
           BggTools::Logger.debug("storing new key in cache: key=#{key.inspect}")
           @cache.store(key, result)
           result
+        else
+          BggTools::Logger.debug("serving key from cache: key=#{key.inspect}")
+          @cache.fetch(key)
         end
       end
 
@@ -43,6 +43,12 @@ module BggTools
       def clear
         return if @cache.nil?
         @cache.clear
+      end
+
+      private
+
+      def overwrite?
+        @state == :overwrite || ENV.key?('FORCE_UNCACHE')
       end
     end
   end

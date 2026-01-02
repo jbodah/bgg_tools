@@ -1,0 +1,42 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require 'set' # For using Set
+require_relative '../env'
+Env.load_all
+
+options = {
+  user: 'hiimjosh',
+  only_owned: false
+}
+
+OptionParser.new do |opts|
+  opts.banner = "Usage: plays_by_month [options]"
+
+  opts.on("-u", "--user USER", "Specify the username to analyze") do |user|
+    options[:user] = user
+  end
+
+  opts.on("--only-owned", "Only include plays of owned games") do
+    options[:only_owned] = true
+  end
+end.parse!
+
+user = BggTools::User.new(user_id: options[:user])
+plays = user.plays(since: '2000-01-01')
+
+if options[:only_owned]
+  owned_game_ids = user.owned.map(&:id).to_set
+  plays = plays.select { |play| owned_game_ids.include?(play.item_id) }
+end
+
+uniq_months_by_game = Hash.new { |hash, key| hash[key] = Set.new }
+plays.each do |play|
+  uniq_months_by_game[play.game_name] << play.date.strftime('%Y-%m')
+end
+
+sorted_games = uniq_months_by_game.transform_values(&:size).sort_by { |_, count| -count }
+
+sorted_games.each do |game_name, count|
+  puts "#{game_name}: #{count}"
+end
