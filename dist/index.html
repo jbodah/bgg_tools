@@ -42,6 +42,15 @@ body {
 
         <tr>
           <td>
+            <label for="bearer_token">Bearer Token (optional; stored in cookie)</label>
+          </td>
+          <td>
+            <input id="bearer_token" name="bearer_token" type="password"></input>
+          </td>
+        </tr>
+
+        <tr>
+          <td>
             <label for="mindate">Min Date</label>
           </td>
           <td>
@@ -166,6 +175,18 @@ function sleep(ms) {
   return
 }
 
+function cookieGet(name) {
+  var value = "; " + document.cookie;
+  var parts = value.split("; " + name + "=");
+  if (parts.length == 2) {
+    var value = parts.pop().split(";").shift();
+    logEvent(`got value from cookie. key=${name} value=***`);
+    return value;
+  } else {
+    logEvent(`no value returned from cookie. key=${name}`)
+  }
+}
+
 function syncGet(url) {
   var tryNum = 0;
   var out = null;;
@@ -205,6 +226,12 @@ function syncGet(url) {
       }
     }
     req.open('GET', url, false);
+
+    var bearerToken = cookieGet("bearer_token");
+    if (bearerToken) {
+      req.setRequestHeader('Authorization', `Bearer ${bearerToken}`);
+    }
+
     try {
       req.send();
     } catch (DOMException) {
@@ -559,6 +586,7 @@ function submitForm(event) {
   document.getElementById("output").innerHTML = "";
 
   var username            = document.getElementById("username").value;
+  var bearerToken         = document.getElementById("bearer_token").value;
   var mindate             = document.getElementById("mindate").value;
   var maxdate             = document.getElementById("maxdate").value;
   var originalNewToMeLink = document.getElementById("original_new_to_me").value;
@@ -570,6 +598,14 @@ function submitForm(event) {
 
   logEvent(`saving username in local storage. key=username`)
   window.localStorage.setItem("username", username);
+
+  if (bearerToken) {
+    logEvent(`saving bearer_token in cookie. key=bearer_token`)
+    document.cookie = `bearer_token=${bearerToken}; path=/; max-age=31536000`; // 1 year
+  } else {
+    logEvent(`clearing bearer_token cookie. key=bearer_token`)
+    document.cookie = `bearer_token=; path=/; max-age=0`;
+  }
 
   var dataSourcesToGenerators = {
     "new_to_me": () => generateNewToMeGames(username, mindate, maxdate),
@@ -639,7 +675,12 @@ function setDefaults() {
 
   username = document.getElementById("username");
   if (username.value == "__replace__") {
-    username.value = localStorageGet("username");
+    username.value = localStorageGet("username") || "";
+  }
+
+  var bearerTokenInput = document.getElementById("bearer_token");
+  if (bearerTokenInput.value == "") {
+    bearerTokenInput.value = cookieGet("bearer_token") || "";
   }
 }
 
